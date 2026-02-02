@@ -4,10 +4,10 @@ import kotlinx.serialization.Serializable
 
 sealed class NavigationRoutes {
     @Serializable
-    data object Tabs : NavigationRoutes()
+    data object Login : NavigationRoutes()
 
     @Serializable
-    data object TransactionFlow : NavigationRoutes()
+    data object Tabs : NavigationRoutes()
 
     @Serializable
     data class TransactionDetails(val transactionId: String) : NavigationRoutes()

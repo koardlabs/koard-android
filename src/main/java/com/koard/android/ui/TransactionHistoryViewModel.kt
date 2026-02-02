@@ -47,6 +47,28 @@ class TransactionHistoryViewModel(application: Application) : AndroidViewModel(a
 
             Timber.d("Loading transactions...")
 
+            if (!koardSdk.isAuthenticated) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = getApplication<Application>().getString(R.string.transaction_history_requires_login),
+                        transactions = emptyList()
+                    )
+                }
+                return@withContext
+            }
+
+            if (koardSdk.activeLocationId == null) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = getApplication<Application>().getString(R.string.transaction_history_requires_location),
+                        transactions = emptyList()
+                    )
+                }
+                return@withContext
+            }
+
             // Call SDK to get transactions
             val result = koardSdk.getTransactions()
 

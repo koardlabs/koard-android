@@ -13,8 +13,8 @@ android {
         applicationId = "com.koard.android"
         minSdk = 31
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 102
+        versionName = "1.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -38,16 +38,12 @@ android {
         create("prod") {
             dimension = "environment"
             buildConfigField("String", "ENVIRONMENT", "\"PROD\"")
-            buildConfigField("String", "MERCHANT_PIN", "\"YOUR_MERCHANT_PIN\"")
-            buildConfigField("String", "MERCHANT_CODE", "\"YOUR_MERCHANT_CODE\"")
             buildConfigField("String", "API_KEY", "\"YOUR_API_KEY\"")
         }
 
         create("uat") {
             dimension = "environment"
             buildConfigField("String", "ENVIRONMENT", "\"UAT\"")
-            buildConfigField("String", "MERCHANT_PIN", "\"YOUR_MERCHANT_PIN\"")
-            buildConfigField("String", "MERCHANT_CODE", "\"YOUR_MERCHANT_CODE\"")
             buildConfigField("String", "API_KEY", "\"YOUR_API_KEY\"")
             applicationIdSuffix = ".uat"
         }
@@ -86,7 +82,7 @@ androidComponents {
 dependencies {
     // Koard Android SDK - uses published artifact from local Maven repo (demo/libs-maven)
     // Run ./publish-sdk-locally.sh after making SDK changes
-    implementation("com.koardlabs:koard-android-sdk:0.0.1")
+    implementation("com.koardlabs:koard-android-sdk:1.0.2")
 
     implementation(platform(libs.androidx.compose.bom))
 

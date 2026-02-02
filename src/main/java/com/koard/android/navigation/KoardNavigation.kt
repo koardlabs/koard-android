@@ -23,35 +23,47 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.koard.android.R
+import com.koard.android.ui.LoginScreen
 import com.koard.android.ui.MainScreen
 import com.koard.android.ui.SettingsScreen
 import com.koard.android.ui.TransactionDetailsScreen
-import com.koard.android.ui.TransactionFlowScreen
 import com.koard.android.ui.TransactionHistoryScreen
+import com.koardlabs.merchant.sdk.KoardMerchantSdk
 
 @Composable
 fun KoardNavigation(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController()
 ) {
+    val sdk = KoardMerchantSdk.getInstance()
+    val isAuthenticated = sdk.isAuthenticated
+
     NavHost(
         navController = navController,
-        startDestination = NavigationRoutes.Tabs,
+        startDestination = if (isAuthenticated) NavigationRoutes.Tabs else NavigationRoutes.Login,
         modifier = modifier
     ) {
-        composable<NavigationRoutes.Tabs> {
-            TabsRoot(
-                onNavigateToTransactionFlow = {
-                    navController.navigate(NavigationRoutes.TransactionFlow)
-                },
-                onTransactionSelected = { transactionId ->
-                    navController.navigate(NavigationRoutes.TransactionDetails(transactionId))
+        composable<NavigationRoutes.Login> {
+            LoginScreen(
+                onLoginSuccess = {
+                    navController.navigate(NavigationRoutes.Tabs) {
+                        popUpTo(NavigationRoutes.Login) { inclusive = true }
+                    }
                 }
             )
         }
 
-        composable<NavigationRoutes.TransactionFlow> {
-            TransactionFlowScreen(onNavigateBack = navController::popBackStack)
+        composable<NavigationRoutes.Tabs> {
+            TabsRoot(
+                onTransactionSelected = { transactionId ->
+                    navController.navigate(NavigationRoutes.TransactionDetails(transactionId))
+                },
+                onLogout = {
+                    navController.navigate(NavigationRoutes.Login) {
+                        popUpTo(NavigationRoutes.Tabs) { inclusive = true }
+                    }
+                }
+            )
         }
 
         composable<NavigationRoutes.TransactionDetails> { backStackEntry ->
@@ -72,8 +84,8 @@ private enum class HomeTab(val labelRes: Int, val icon: androidx.compose.ui.grap
 
 @Composable
 private fun TabsRoot(
-    onNavigateToTransactionFlow: () -> Unit,
     onTransactionSelected: (String) -> Unit,
+    onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(HomeTab.Home) }
@@ -101,12 +113,12 @@ private fun TabsRoot(
             )
 
             HomeTab.Home -> MainScreen(
-                modifier = Modifier.padding(paddingValues),
-                onNavigateToTransactionFlow = onNavigateToTransactionFlow
+                modifier = Modifier.padding(paddingValues)
             )
 
             HomeTab.Settings -> SettingsScreen(
-                modifier = Modifier.padding(paddingValues)
+                modifier = Modifier.padding(paddingValues),
+                onLogout = onLogout
             )
         }
     }

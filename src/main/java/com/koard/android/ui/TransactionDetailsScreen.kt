@@ -231,7 +231,8 @@ private fun TransactionDetailsContent(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                        .background(MaterialTheme.colorScheme.surface),
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
 //                    TransactionOverviewCard(uiState.transaction)
@@ -255,24 +256,24 @@ private fun TransactionDetailsContent(
 
 @Composable
 private fun TransactionOverviewCard(transaction: TransactionDetailsUI) {
-    val dateFormat = SimpleDateFormat("MMM dd, yyyy HH:mm:a", Locale.getDefault())
+    val dateFormat = SimpleDateFormat("MMM dd, yyyy HH:mm a", Locale.getDefault())
     val formattedDate = dateFormat.format(Date(transaction.date))
     val formattedAmount = String.format(Locale.getDefault(), "%.2f", transaction.amount / 100.0)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
                 text = "Overview",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = KoardGreen800
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary
             )
 
             DetailRow("Transaction ID", transaction.id)
@@ -285,11 +286,11 @@ private fun TransactionOverviewCard(transaction: TransactionDetailsUI) {
                     KoardTransactionStatus.AUTHORIZED -> Color(0xFFF6693E)
                     KoardTransactionStatus.CAPTURED -> KoardGreen800
                     KoardTransactionStatus.SETTLED -> KoardGreen800
-                    KoardTransactionStatus.DECLINED -> Color(0xFFFF0000)
+                    KoardTransactionStatus.DECLINED -> Color(0xFFD32F2F)
                     KoardTransactionStatus.REFUNDED -> Color(0xFFF6693E)
                     KoardTransactionStatus.REVERSED -> Color(0xFFF6693E)
-                    KoardTransactionStatus.CANCELED -> Color(0xFF757575)
-                    KoardTransactionStatus.ERROR -> Color(0xFFFF0000)
+                    KoardTransactionStatus.CANCELED -> Color(0xFF616161)
+                    KoardTransactionStatus.ERROR -> Color(0xFFD32F2F)
                     KoardTransactionStatus.SURCHARGE_PENDING -> Color(0xFFFFA000)
                     KoardTransactionStatus.UNKNOWN -> Color(0xFF9E9E9E)
                 }
@@ -309,18 +310,18 @@ private fun PaymentDetailsCard(transaction: TransactionDetailsUI) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
                 text = "Payment Details",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = KoardGreen800
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary
             )
 
             DetailRow("Card", transaction.card)
@@ -367,18 +368,18 @@ private fun PaymentDetailsCard(transaction: TransactionDetailsUI) {
 private fun ProcessingDetailsCard(transaction: TransactionDetailsUI) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
                 text = "Processing Details",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = KoardGreen800
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary
             )
 
             DetailRow("Gateway", transaction.gateway)
@@ -404,18 +405,18 @@ private fun ProcessingDetailsCard(transaction: TransactionDetailsUI) {
 private fun LocationDetailsCard(transaction: TransactionDetailsUI) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
                 text = "Location & Device",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = KoardGreen800
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary
             )
 
             DetailRow("Location ID", transaction.locationId)
@@ -437,13 +438,13 @@ private fun DetailRow(
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f)
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
             color = valueColor,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.End

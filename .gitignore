@@ -13,10 +13,15 @@ demo/build.gradle.kts
 build/
 
 .kotlin
-.idea
+/.idea
 .DS_Store
 /build
 /captures
 .externalNativeBuild
 .cxx
-local.properties
+
+# Local Maven repo checksum artifacts
+libs-maven/**/*.md5
+libs-maven/**/*.sha1
+libs-maven/**/*.sha256
+libs-maven/**/*.sha512
