@@ -140,6 +140,8 @@
     <string name="failed_to_process_refund">Failed to process refund: %s</string>
     <string name="failed_to_send_receipt">Failed to send receipt: %s</string>
     <string name="failed_to_load_transactions">Failed to load transactions: %s</string>
+    <string name="transaction_history_requires_login">Login to view transaction history.</string>
+    <string name="transaction_history_requires_location">Select a location to view transaction history.</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>

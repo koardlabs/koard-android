@@ -172,16 +172,17 @@ private fun TransactionHistoryContent(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surface),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .background(MaterialTheme.colorScheme.background),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     itemsIndexed(uiState.transactions) { index, transaction ->
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shadowElevation = 2.dp
+                            color = MaterialTheme.colorScheme.surface,
+                            tonalElevation = 2.dp,
+                            shadowElevation = 4.dp
                         ) {
                             TransactionItem(transaction, onTransactionClick)
                         }
@@ -197,7 +198,7 @@ private fun TransactionItem(
     transaction: TransactionUI,
     onTransactionClick: (String) -> Unit
 ) {
-    val dateFormat = SimpleDateFormat("MMM dd, yyyy HH:mm:a", Locale.getDefault())
+    val dateFormat = SimpleDateFormat("MMM dd, yyyy HH:mm a", Locale.getDefault())
     val formattedDate = dateFormat.format(Date(transaction.date))
     val formattedAmount = String.format(Locale.getDefault(), "%.2f", transaction.amount / 100.0)
 
@@ -205,7 +206,7 @@ private fun TransactionItem(
         modifier = Modifier
             .clickable { onTransactionClick(transaction.id) }
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -214,28 +215,36 @@ private fun TransactionItem(
         ) {
             Text(
                 text = transaction.card,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.SemiBold
-                )
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.Bold
+                ),
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = transaction.status.displayName,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.SemiBold
+                ),
                 color = when (transaction.status) {
                     KoardTransactionStatus.PENDING -> Color(0xFFFFA000)
                     KoardTransactionStatus.AUTHORIZED -> Color(0xFFF6693E)
                     KoardTransactionStatus.CAPTURED -> KoardGreen800
                     KoardTransactionStatus.SETTLED -> KoardGreen800
-                    KoardTransactionStatus.DECLINED -> Color(0xFFFF0000)
+                    KoardTransactionStatus.DECLINED -> Color(0xFFD32F2F)
                     KoardTransactionStatus.REFUNDED -> Color(0xFFF6693E)
                     KoardTransactionStatus.REVERSED -> Color(0xFFF6693E)
-                    KoardTransactionStatus.CANCELED -> Color(0xFF757575)
-                    KoardTransactionStatus.ERROR -> Color(0xFFFF0000)
+                    KoardTransactionStatus.CANCELED -> Color(0xFF616161)
+                    KoardTransactionStatus.ERROR -> Color(0xFFD32F2F)
                     KoardTransactionStatus.SURCHARGE_PENDING -> Color(0xFFFFA000)
                     KoardTransactionStatus.UNKNOWN -> Color(0xFF9E9E9E)
                 }
             )
         }
+
+        HorizontalDivider(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -245,12 +254,15 @@ private fun TransactionItem(
             Text(
                 text = formattedDate,
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Text(
                 text = stringResource(R.string.amount_label, formattedAmount),
-                style = MaterialTheme.typography.bodyMedium,
-                color = KoardGreen800
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold
+                ),
+                color = MaterialTheme.colorScheme.primary
             )
         }
     }

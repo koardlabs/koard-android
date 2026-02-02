@@ -20,8 +20,18 @@ class DemoApplication : Application() {
             withContext(Dispatchers.IO) {
                 val environment = when (BuildConfig.ENVIRONMENT) {
                     "PROD" -> KoardEnvironment.PROD
-                    "UAT" -> KoardEnvironment.UAT
-                    else -> KoardEnvironment.UAT
+                    "UAT" -> KoardEnvironment.Custom(
+                        koardApiUrl = "https://development-160452576009.us-central1.run.app",
+                        enrollmentUrl = "https://development-160452576009.us-central1.run.app",
+                        visaCloudPosUrl = "https://sandbox.cloudpos.digital.visa.com",
+                        name = "dev"
+                    )
+                    else -> KoardEnvironment.Custom(
+                        koardApiUrl = "https://development-160452576009.us-central1.run.app",
+                        enrollmentUrl = "https://development-160452576009.us-central1.run.app",
+                        visaCloudPosUrl = "https://sandbox.cloudpos.digital.visa.com",
+                        name = "dev"
+                    )
                 }
 
                 KoardMerchantSdk.initialize(

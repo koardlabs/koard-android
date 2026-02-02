@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.koardlabs</groupId>
   <artifactId>koard-android-sdk</artifactId>
-  <version>0.0.1</version>
+  <version>1.0.2</version>
   <packaging>aar</packaging>
   <dependencies>
     <dependency>
@@ -28,6 +28,12 @@
       <groupId>com.google.android.material</groupId>
       <artifactId>material</artifactId>
       <version>1.13.0</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>androidx.lifecycle</groupId>
+      <artifactId>lifecycle-process</artifactId>
+      <version>2.9.4</version>
       <scope>runtime</scope>
     </dependency>
     <dependency>
