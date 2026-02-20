@@ -22,4 +22,4 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Koard Android Demo"
+rootProject.name = "Payroc"

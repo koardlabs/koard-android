@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Payroc brand icon: bold "roc" wordmark with underline accent -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="40dp"
+    android:viewportWidth="120"
+    android:viewportHeight="40">
+
+    <!-- Navy background pill -->
+    <path
+        android:fillColor="#001D4E"
+        android:pathData="M6,0 L114,0 Q120,0 120,6 L120,34 Q120,40 114,40 L6,40 Q0,40 0,34 L0,6 Q0,0 6,0 Z" />
+
+    <!-- "roc" white text approximation using bold strokes -->
+    <!-- r stem -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M28,28 L28,14" />
+    <!-- r arm -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M28,18 Q34,13 38,16" />
+
+    <!-- o circle -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:fillColor="#00000000"
+        android:pathData="M51,21 A7,7 0 1,0 51,21.001 Z" />
+
+    <!-- c arc -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M82,16 Q74,13 71,18 Q68,23 71,26 Q74,29 82,28" />
+
+    <!-- Blue accent underline -->
+    <path
+        android:strokeColor="#0051BB"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M20,34 L92,34" />
+
+</vector>

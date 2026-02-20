@@ -1,27 +1,77 @@
-*.iml
-.gradle
-/local.properties
-bleu-merchant-sdk-android/
-demo/build.gradle.kts
-# Files for the ART/Dalvik VM
-*.dex
-*.zip
-# Java class files
-*.class
+# ─── Gradle ───────────────────────────────────────────────────────────────────
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
 
-# Generated files
+# ─── Build outputs ────────────────────────────────────────────────────────────
 build/
+/build/
+**/build/
+captures/
 
-.kotlin
-/.idea
+# ─── Android Studio / IntelliJ IDEA ──────────────────────────────────────────
+/.idea/
+*.iml
+*.iws
+*.ipr
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/gradle.xml
+.idea/assetWizardSettings.xml
+.idea/dictionaries
+.idea/libraries
+.idea/caches
+.idea/shelf
+.idea/navEditor.xml
+.idea/deploymentTargetSelector.xml
+
+# Keep these IDEA files (project config worth sharing)
+!.idea/.name
+!.idea/compiler.xml
+!.idea/misc.xml
+!.idea/runConfigurations.xml
+!.idea/vcs.xml
+
+# ─── Local config (machine-specific, contains secrets) ───────────────────────
+local.properties
+keystore.properties
+*.keystore
+*.jks
+
+# ─── Kotlin ───────────────────────────────────────────────────────────────────
+.kotlin/
+
+# ─── Native ───────────────────────────────────────────────────────────────────
+.externalNativeBuild/
+.cxx/
+
+# ─── Compiled files ───────────────────────────────────────────────────────────
+*.class
+*.dex
+*.ap_
+*.apk
+*.aab
+*.aar
+
+# ─── Logs & temp ──────────────────────────────────────────────────────────────
+*.log
+*.tmp
+*.temp
+
+# ─── macOS ────────────────────────────────────────────────────────────────────
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+.AppleDouble
+.LSOverride
+Thumbs.db
 
-# Local Maven repo checksum artifacts
+# ─── Local Maven repo (checksums only — keep the actual artifacts) ────────────
 libs-maven/**/*.md5
 libs-maven/**/*.sha1
 libs-maven/**/*.sha256
 libs-maven/**/*.sha512
+
+# ─── Secrets / API keys (never commit these) ─────────────────────────────────
+*.env
+secrets.properties
+google-services.json

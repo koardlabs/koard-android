@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.koard.android"
+    namespace = "com.payroc.terminal"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.koard.android"
+        applicationId = "com.payroc.terminal"
         minSdk = 31
         targetSdk = 36
         versionCode = 102
@@ -35,13 +35,13 @@ android {
     flavorDimensions += "environment"
 
     productFlavors {
-        create("prod") {
+        create("Prod") {
             dimension = "environment"
             buildConfigField("String", "ENVIRONMENT", "\"PROD\"")
             buildConfigField("String", "API_KEY", "\"YOUR_API_KEY\"")
         }
 
-        create("uat") {
+        create("UAT") {
             dimension = "environment"
             buildConfigField("String", "ENVIRONMENT", "\"UAT\"")
             buildConfigField("String", "API_KEY", "\"YOUR_API_KEY\"")
@@ -72,7 +72,7 @@ android {
 androidComponents {
     beforeVariants { variantBuilder ->
         val isProdDebug = variantBuilder.buildType == "debug" &&
-            variantBuilder.productFlavors.any { it.second == "prod" }
+            variantBuilder.productFlavors.any { it.second == "Prod" }
         if (isProdDebug) {
             variantBuilder.enable = false
         }
