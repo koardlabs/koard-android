@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Payroc Brand Colors -->
-    <color name="payroc_blue">#0051BB</color>
-    <color name="payroc_navy">#001D4E</color>
-    <color name="payroc_white">#FFFFFF</color>
-    <color name="payroc_red">#D93737</color>
-    <color name="payroc_light_gray">#E5E5E5</color>
-    <color name="payroc_dark_text">#191C26</color>
+    <!-- Koard Brand Colors -->
+    <color name="koard_blue">#0051BB</color>
+    <color name="koard_navy">#001D4E</color>
+    <color name="koard_white">#FFFFFF</color>
+    <color name="koard_red">#D93737</color>
+    <color name="koard_light_gray">#E5E5E5</color>
+    <color name="koard_dark_text">#191C26</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="ic_launcher_background">#001D4E</color>
+    <color name="ic_launcher_background">#0E6E1E</color>
 </resources>

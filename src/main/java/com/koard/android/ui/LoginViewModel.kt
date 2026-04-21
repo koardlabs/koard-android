@@ -1,4 +1,4 @@
-package com.payroc.terminal.ui
+package com.koard.android.ui
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel

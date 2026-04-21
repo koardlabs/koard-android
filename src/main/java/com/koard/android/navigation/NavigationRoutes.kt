@@ -1,4 +1,4 @@
-package com.payroc.terminal.navigation
+package com.koard.android.navigation
 
 import kotlinx.serialization.Serializable
 
