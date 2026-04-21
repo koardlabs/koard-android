@@ -14,9 +14,7 @@ class DemoApplication : Application() {
 
         Timber.plant(Timber.DebugTree())
 
-        /* INITIALIZE THE SDK ON APPLICATION STARTUP */
         runBlocking {
-            // Ensure that SDK is initialized before onCreate is finished
             withContext(Dispatchers.IO) {
                 val environment = when (BuildConfig.ENVIRONMENT) {
                     "PROD" -> KoardEnvironment.PROD

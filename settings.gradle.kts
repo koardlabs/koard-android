@@ -22,4 +22,4 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Payroc"
+rootProject.name = "Koard Demo"

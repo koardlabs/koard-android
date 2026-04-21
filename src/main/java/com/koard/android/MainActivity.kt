@@ -1,4 +1,4 @@
-package com.payroc.terminal
+package com.koard.android
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -7,8 +7,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
-import com.payroc.terminal.navigation.KoardNavigation
-import com.payroc.terminal.ui.theme.PayrocTheme
+import com.koard.android.navigation.KoardNavigation
+import com.koard.android.ui.theme.KoardAndroidSDKTheme
 import com.koardlabs.merchant.sdk.KoardMerchantSdk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -23,7 +23,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            PayrocTheme {
+            KoardAndroidSDKTheme {
                 Surface {
                     KoardNavigation(modifier = Modifier)
                 }

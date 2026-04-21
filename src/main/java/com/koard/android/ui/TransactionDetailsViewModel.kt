@@ -1,4 +1,4 @@
-package com.payroc.terminal.ui
+package com.koard.android.ui
 
 import android.app.Application
 import android.content.Context
@@ -8,9 +8,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.payroc.terminal.R
-import com.payroc.terminal.utils.isValidEmail
-import com.payroc.terminal.utils.isValidUSPhoneNumber
+import com.koard.android.R
+import com.koard.android.utils.isValidEmail
+import com.koard.android.utils.isValidUSPhoneNumber
 import com.koardlabs.merchant.sdk.KoardMerchantSdk
 import com.koardlabs.merchant.sdk.domain.KoardTransaction
 import com.koardlabs.merchant.sdk.domain.KoardTransactionActionStatus

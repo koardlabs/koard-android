@@ -1,4 +1,4 @@
-package com.payroc.terminal.utils
+package com.koard.android.utils
 
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.OffsetMapping

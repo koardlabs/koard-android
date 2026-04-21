@@ -1,9 +1,9 @@
-package com.payroc.terminal.ui
+package com.koard.android.ui
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.payroc.terminal.R
+import com.koard.android.R
 import com.koardlabs.merchant.sdk.KoardMerchantSdk
 import com.koardlabs.merchant.sdk.domain.KoardTransaction
 import com.koardlabs.merchant.sdk.domain.KoardTransactionStatus
