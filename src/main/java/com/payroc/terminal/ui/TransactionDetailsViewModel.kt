@@ -13,7 +13,10 @@ import com.payroc.terminal.utils.isValidEmail
 import com.payroc.terminal.utils.isValidUSPhoneNumber
 import com.koardlabs.merchant.sdk.KoardMerchantSdk
 import com.koardlabs.merchant.sdk.domain.KoardTransaction
+import com.koardlabs.merchant.sdk.domain.KoardTransactionActionStatus
+import com.koardlabs.merchant.sdk.domain.KoardTransactionResponse
 import com.koardlabs.merchant.sdk.domain.KoardTransactionStatus
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -52,12 +55,19 @@ class TransactionDetailsViewModel(application: Application) : AndroidViewModel(a
                     TransactionDetailsIntent.OnCaptureClick -> handleOperationClick(PaymentOperation.CAPTURE)
                     TransactionDetailsIntent.OnReverseClick -> handleOperationClick(PaymentOperation.REVERSE)
                     TransactionDetailsIntent.OnAdjustTipClick -> handleOperationClick(PaymentOperation.ADJUST_TIP)
+                    TransactionDetailsIntent.OnCompletePartialAuthClick -> handleOperationClick(PaymentOperation.COMPLETE_PARTIAL_AUTH)
                     TransactionDetailsIntent.OnCloseOperationModal -> handleCloseOperationModal()
+                    TransactionDetailsIntent.OnDismissTapProcessing -> _uiState.update {
+                        it.copy(showTransactionSheet = false, activeTransactionFlow = null, pendingTransactionStarter = null, activeTransactionAmountLabel = null, activeTransactionTitle = null)
+                    }
+                    TransactionDetailsIntent.OnEmvRefundClick -> _effects.send(TransactionDetailsEffect.ShowEmvRefundDialog)
+                    is TransactionDetailsIntent.OnProcessEmvRefund -> processEmvRefund(intent.activity, intent.amount)
                     is TransactionDetailsIntent.OnProcessOperation -> processOperation(
                         intent.operation,
                         intent.amount,
                         intent.tipType,
-                        intent.tipPercentage
+                        intent.tipPercentage,
+                        intent.activity
                     )
                     TransactionDetailsIntent.OnSendEmailClick -> handleSendEmailClick()
                     TransactionDetailsIntent.OnSendSmsClick -> handleSendSmsClick()
@@ -122,7 +132,12 @@ class TransactionDetailsViewModel(application: Application) : AndroidViewModel(a
         try {
             val transaction = uiState.value.transaction ?: return@withContext
             val transactionId = transaction.id
-            val amount = transaction.amount
+            val amount = transaction.remainingRefundableAmount
+
+            if (amount <= 0) {
+                _effects.send(TransactionDetailsEffect.ShowError("No refundable amount remaining for this transaction."))
+                return@withContext
+            }
 
             Timber.d("Processing refund for transaction ID: $transactionId")
 
@@ -133,9 +148,11 @@ class TransactionDetailsViewModel(application: Application) : AndroidViewModel(a
                 if (updateTransaction != null) {
                     Timber.d("Refund processed successfully for transaction ID: $transactionId")
                     _effects.send(TransactionDetailsEffect.RefundSuccess)
+                    // Re-fetch the original transaction to get updated refunded/reversed amounts
+                    val refreshed = koardSdk.getTransaction(transactionId).getOrNull()
                     _uiState.update {
                         it.copy(
-                            transaction = updateTransaction.toTransactionDetailsUI(),
+                            transaction = (refreshed ?: updateTransaction).toTransactionDetailsUI(),
                             error = null
                         )
                     }
@@ -240,8 +257,11 @@ class TransactionDetailsViewModel(application: Application) : AndroidViewModel(a
     }
 
     private fun handleOperationClick(operation: PaymentOperation) {
+        val suggested = if (operation == PaymentOperation.COMPLETE_PARTIAL_AUTH) {
+            _uiState.value.transaction?.remainingAmount
+        } else null
         _uiState.update {
-            it.copy(operationModalState = OperationModalState(operation = operation))
+            it.copy(operationModalState = OperationModalState(operation = operation, suggestedAmount = suggested))
         }
     }
 
@@ -253,8 +273,17 @@ class TransactionDetailsViewModel(application: Application) : AndroidViewModel(a
         operation: PaymentOperation,
         amount: Int?,
         tipType: com.koardlabs.merchant.sdk.domain.AmountType?,
-        tipPercentage: Double?
-    ) = withContext(Dispatchers.IO) {
+        tipPercentage: Double?,
+        activity: android.app.Activity? = null
+    ) {
+        // Partial auth completion needs the main thread for the tap UI,
+        // so handle it separately from the IO-dispatched operations.
+        if (operation == PaymentOperation.COMPLETE_PARTIAL_AUTH) {
+            processPartialAuthCompletion(amount, activity)
+            return
+        }
+
+        withContext(Dispatchers.IO) {
         try {
             val transaction = uiState.value.transaction ?: return@withContext
             val transactionId = transaction.id
@@ -288,21 +317,28 @@ class TransactionDetailsViewModel(application: Application) : AndroidViewModel(a
                 PaymentOperation.REFUND -> {
                     koardSdk.refund(transactionId, amount)
                 }
+                PaymentOperation.COMPLETE_PARTIAL_AUTH -> {
+                    // Handled above before withContext(Dispatchers.IO)
+                    throw IllegalStateException("Should not reach here")
+                }
             }
 
             if (result.isSuccess) {
                 val updatedTransaction = result.getOrNull()
                 if (updatedTransaction != null) {
                     Timber.d("${operation.displayName} processed successfully for transaction ID: $transactionId")
+                    // Re-fetch the original transaction to get updated refunded/reversed amounts
+                    val refreshed = koardSdk.getTransaction(transactionId).getOrNull()
+                    val displayTransaction = (refreshed ?: updatedTransaction).toTransactionDetailsUI()
                     _uiState.update {
                         it.copy(
-                            transaction = updatedTransaction.toTransactionDetailsUI(),
+                            transaction = displayTransaction,
                             operationModalState = it.operationModalState?.copy(
                                 isProcessing = false,
                                 result = OperationResult(
                                     success = true,
                                     message = "${operation.displayName} completed successfully",
-                                    transaction = updatedTransaction.toTransactionDetailsUI()
+                                    transaction = displayTransaction
                                 )
                             )
                         )
@@ -353,6 +389,61 @@ class TransactionDetailsViewModel(application: Application) : AndroidViewModel(a
                 )
             }
         }
+        }
+    }
+
+    private suspend fun processPartialAuthCompletion(
+        amount: Int?,
+        activity: android.app.Activity?
+    ) {
+        val transaction = uiState.value.transaction ?: return
+        val transactionId = transaction.id
+
+        if (amount == null || activity == null) {
+            _uiState.update {
+                it.copy(operationModalState = it.operationModalState?.copy(
+                    isProcessing = false,
+                    result = OperationResult(false, if (amount == null) "Amount is required" else "Activity not available", null)
+                ))
+            }
+            return
+        }
+
+        // Show the sheet first, then start the SDK call once cancel button is measured
+        _uiState.update {
+            it.copy(
+                operationModalState = null,
+                showTransactionSheet = true,
+                activeTransactionTitle = "Complete Partial Auth",
+                activeTransactionAmountLabel = formatCentsToUSD(amount),
+                pendingTransactionStarter = { buttonProps ->
+                    koardSdk.completePartialAuth(
+                        activity = activity,
+                        transactionId = transactionId,
+                        amount = amount,
+                        buttonProperties = buttonProps
+                    )
+                }
+            )
+        }
+    }
+
+    fun onTransactionComplete(result: TransactionResult) {
+        viewModelScope.launch(Dispatchers.IO) {
+            // Refresh the transaction to get updated state
+            val txnId = uiState.value.transaction?.id ?: return@launch
+            val refreshed = koardSdk.getTransaction(txnId).getOrNull()
+            _uiState.update {
+                it.copy(
+                    showTransactionSheet = false,
+                    activeTransactionFlow = null,
+                    pendingTransactionStarter = null,
+                    activeTransactionTitle = null,
+                    activeTransactionAmountLabel = null,
+                    transaction = refreshed?.toTransactionDetailsUI() ?: it.transaction
+                )
+            }
+        }
     }
 
     private fun KoardTransaction.toTransactionDetailsUI(): TransactionDetailsUI = TransactionDetailsUI(
@@ -383,12 +474,109 @@ class TransactionDetailsViewModel(application: Application) : AndroidViewModel(a
         approvalCode = gatewayTransactionResponse.approvalCode,
         gatewayResponseMessage = gatewayTransactionResponse.responseMessage,
         transactionType = transactionType,
-        simplifiedStatus = simplifiedStatus
+        simplifiedStatus = simplifiedStatus,
+        authorizedAmount = gatewayTransactionResponse.authorizedAmount,
+        remainingAmount = if (statusReason == "partial_approval") maxOf(0, totalAmount - gatewayTransactionResponse.authorizedAmount) else 0
     )
 
     fun onDispatch(intent: TransactionDetailsIntent) {
         viewModelScope.launch { intents.emit(intent) }
     }
+
+    private fun processEmvRefund(activity: android.app.Activity, amount: Int?) {
+        if (koardSdk.isDeveloperModeEnabled()) {
+            viewModelScope.launch {
+                _effects.send(
+                    TransactionDetailsEffect.ShowError(
+                        "EMV refund is unavailable while Developer Mode is enabled. Disable Developer Mode and try again."
+                    )
+                )
+            }
+            return
+        }
+
+        val transaction = uiState.value.transaction ?: return
+        val transactionId = transaction.id
+        val refundAmount = amount ?: transaction.remainingRefundableAmount
+
+        if (refundAmount <= 0) {
+            viewModelScope.launch {
+                _effects.send(TransactionDetailsEffect.ShowError("No refundable amount remaining for this transaction."))
+            }
+            return
+        }
+
+        _uiState.update {
+            it.copy(
+                showTransactionSheet = true,
+                activeTransactionTitle = "EMV Refund",
+                activeTransactionAmountLabel = "Refund ${formatCentsToUSD(refundAmount)}",
+                pendingTransactionStarter = { buttonProps ->
+                    koardSdk.refundEmv(
+                        activity = activity,
+                        transactionId = transactionId,
+                        amount = refundAmount,
+                        buttonProperties = buttonProps,
+                        eventId = java.util.UUID.randomUUID().toString()
+                    )
+                }
+            )
+        }
+    }
+
+    fun cancelPartialAuth() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                Timber.d("Cancelling partial auth transaction")
+                koardSdk.cancelTransaction()
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to cancel partial auth")
+            }
+        }
+    }
+
+    fun updateCancelButtonMetrics(x: Int, y: Int, w: Int, h: Int) {
+        var starterToRun: (suspend (List<com.visa.kic.sdk.common.ipc.ButtonProperties>) -> Flow<KoardTransactionResponse>)? = null
+
+        _uiState.update { current ->
+            val shouldStart = current.pendingTransactionStarter != null && current.activeTransactionFlow == null
+            if (shouldStart) {
+                starterToRun = current.pendingTransactionStarter
+            }
+
+            current.copy(
+                cancelButtonXDp = x,
+                cancelButtonYDp = y,
+                cancelButtonWidthDp = w,
+                cancelButtonHeightDp = h,
+                pendingTransactionStarter = if (shouldStart) null else current.pendingTransactionStarter
+            )
+        }
+
+        val starter = starterToRun
+        if (starter != null) {
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    val buttonProps = listOf(
+                        com.visa.kic.sdk.common.ipc.ButtonProperties("Cancel", x, y, w, h)
+                    )
+                    val flow = starter(buttonProps)
+                    _uiState.update { it.copy(
+                        activeTransactionFlow = flow,
+                        pendingTransactionStarter = null
+                    ) }
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to start pending transaction")
+                    _uiState.update { it.copy(
+                        showTransactionSheet = false,
+                        pendingTransactionStarter = null
+                    ) }
+                    _effects.send(TransactionDetailsEffect.ShowError(e.message ?: "Failed to start transaction"))
+                }
+            }
+        }
+    }
+
 }
 
 data class TransactionDetailsUiState(
@@ -401,13 +589,23 @@ data class TransactionDetailsUiState(
     val phone: String = "",
     val isSmsSendEnabled: Boolean = false,
     val isSendingReceipt: Boolean = false,
-    val operationModalState: OperationModalState? = null
+    val operationModalState: OperationModalState? = null,
+    val showTransactionSheet: Boolean = false,
+    val activeTransactionFlow: Flow<KoardTransactionResponse>? = null,
+    val activeTransactionTitle: String? = null,
+    val activeTransactionAmountLabel: String? = null,
+    val pendingTransactionStarter: (suspend (List<com.visa.kic.sdk.common.ipc.ButtonProperties>) -> Flow<KoardTransactionResponse>)? = null,
+    val cancelButtonXDp: Int = 0,
+    val cancelButtonYDp: Int = 0,
+    val cancelButtonWidthDp: Int = 0,
+    val cancelButtonHeightDp: Int = 0
 )
 
 data class OperationModalState(
     val operation: PaymentOperation,
     val isProcessing: Boolean = false,
-    val result: OperationResult? = null
+    val result: OperationResult? = null,
+    val suggestedAmount: Int? = null
 )
 
 data class OperationResult(
@@ -421,7 +619,8 @@ enum class PaymentOperation(val displayName: String) {
     CAPTURE("Capture"),
     REVERSE("Reverse"),
     ADJUST_TIP("Adjust Tip"),
-    REFUND("Refund")
+    REFUND("Refund"),
+    COMPLETE_PARTIAL_AUTH("Complete Partial Auth")
 }
 
 sealed class TransactionDetailsIntent {
@@ -437,12 +636,17 @@ sealed class TransactionDetailsIntent {
         val operation: PaymentOperation,
         val amount: Int?,
         val tipType: com.koardlabs.merchant.sdk.domain.AmountType?,
-        val tipPercentage: Double?
+        val tipPercentage: Double?,
+        val activity: android.app.Activity? = null
     ) : TransactionDetailsIntent()
     data object OnSendEmailClick : TransactionDetailsIntent()
     data object OnSendSmsClick : TransactionDetailsIntent()
     data object OnCancelReceiptInput : TransactionDetailsIntent()
     data object OnSendReceipt : TransactionDetailsIntent()
+    data object OnCompletePartialAuthClick : TransactionDetailsIntent()
+    data object OnDismissTapProcessing : TransactionDetailsIntent()
+    data object OnEmvRefundClick : TransactionDetailsIntent()
+    data class OnProcessEmvRefund(val activity: android.app.Activity, val amount: Int? = null) : TransactionDetailsIntent()
     data class OnEmailInputChanged(val email: String) : TransactionDetailsIntent()
     data class OnSmsInputChanged(val phone: String) : TransactionDetailsIntent()
 }
@@ -459,7 +663,7 @@ data class TransactionDetailsUI(
     val currency: String,
     val subtotal: Int,
     val taxAmount: Int,
-    val taxRate: Int,
+    val taxRate: Double,
     val tipAmount: Int,
     val surchargeAmount: Double,
     val gateway: String,
@@ -475,7 +679,9 @@ data class TransactionDetailsUI(
     val approvalCode: String,
     val gatewayResponseMessage: String,
     val transactionType: String,
-    val simplifiedStatus: String
+    val simplifiedStatus: String,
+    val authorizedAmount: Int = 0,
+    val remainingAmount: Int = 0
 ) {
     fun getTransactionTypeDisplayName(context: Context): String = when (transactionType) {
         "sale" -> context.getString(R.string.transaction_type_sale)
@@ -495,6 +701,13 @@ data class TransactionDetailsUI(
     val taxFormatted: String get() = formatFromCents(taxAmount)
     val tipFormatted: String get() = formatFromCents(tipAmount)
     val surchargeFormatted: String get() = formatFromCents(surchargeAmount.toInt())
+    val authorizedFormatted: String get() = formatFromCents(authorizedAmount)
+    val remainingFormatted: String get() = formatFromCents(remainingAmount)
+    val refundedFormatted: String get() = formatFromCents(refunded)
+    val reversedFormatted: String get() = formatFromCents(reversed)
+    val remainingRefundableAmount: Int get() = maxOf(0, amount - refunded - reversed)
+    val remainingRefundableFormatted: String get() = formatFromCents(remainingRefundableAmount)
+    val isPartialApproval: Boolean get() = statusReason == "partial_approval" && authorizedAmount > 0 && remainingAmount > 0
 
     val dateFormatted: String
         get() {
@@ -506,7 +719,8 @@ data class TransactionDetailsUI(
     val isRefundable: Boolean
         get() = status.isRefundable &&
             status != KoardTransactionStatus.REFUNDED &&
-            transactionType != "refund"
+            transactionType != "refund" &&
+            remainingRefundableAmount > 0
 }
 
 private fun formatFromCents(valueInCents: Int): String = "$${String.format("%.2f", valueInCents / 100.0)}"
@@ -542,6 +756,7 @@ enum class ReceiptInputType(
 sealed interface TransactionDetailsEffect {
     data class ShowError(val message: String) : TransactionDetailsEffect
     data object ShowRefundDialog : TransactionDetailsEffect
+    data object ShowEmvRefundDialog : TransactionDetailsEffect
     data object RefundSuccess : TransactionDetailsEffect
     data object ReceiptSentSuccess : TransactionDetailsEffect
 }

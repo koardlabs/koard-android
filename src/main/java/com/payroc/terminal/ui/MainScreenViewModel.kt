@@ -9,6 +9,7 @@ import com.payroc.terminal.R
 import com.koardlabs.merchant.sdk.KoardMerchantSdk
 import com.koardlabs.merchant.sdk.domain.AmountType
 import com.koardlabs.merchant.sdk.domain.KoardLocation
+import com.koardlabs.merchant.sdk.domain.KoardReaderStatus
 import com.koardlabs.merchant.sdk.domain.KoardTransactionActionStatus
 import com.koardlabs.merchant.sdk.domain.KoardTransactionFinalStatus
 import com.koardlabs.merchant.sdk.domain.KoardTransactionResponse
@@ -17,7 +18,9 @@ import com.koardlabs.merchant.sdk.domain.Surcharge
 import com.visa.kic.sdk.common.ipc.ButtonProperties
 import com.koardlabs.merchant.sdk.domain.exception.KoardException
 import com.koardlabs.merchant.sdk.domain.KoardErrorType
+import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -52,6 +55,17 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     val sdkReadiness = koardSdk.readinessState
 
     init {
+        // Observe SDK readiness state to keep enrollment status in sync
+        viewModelScope.launch {
+            koardSdk.readinessState.collect { readiness ->
+                _uiState.update {
+                    it.copy(
+                        isDeviceEnrolled = readiness.enrollmentState == com.koardlabs.merchant.sdk.domain.EnrollmentState.Enrolled
+                    )
+                }
+            }
+        }
+
         viewModelScope.launch(
             context = CoroutineExceptionHandler { _, throwable ->
                 Timber.e(throwable, "Uncaught exception in intent handler")
@@ -85,6 +99,8 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                         is MainScreenIntent.OnSurchargeOverrideAmountChanged -> onSurchargeOverrideAmountChanged(intent.amount)
                         MainScreenIntent.OnSurchargeOverrideTypeToggled -> onSurchargeOverrideTypeToggled()
                         is MainScreenIntent.ConfirmSurcharge -> onConfirmSurcharge(intent.confirm)
+                        is MainScreenIntent.TapAnotherCard -> tapAnotherCard(intent.activity, intent.transactionId, intent.remainingAmount)
+                        MainScreenIntent.DismissPartialApproval -> dismissPartialApproval()
                         is MainScreenIntent.UpdateCancelButtonMetrics -> updateCancelButtonMetrics(
                             intent.xDp,
                             intent.yDp,
@@ -375,6 +391,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.update {
             it.copy(
                 isProcessing = true,
+                tapAttempts = 0,
                 errorMessage = null,
                 statusMessages = emptyList(),
                 finalStatus = null,
@@ -391,21 +408,27 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         try {
             val breakdown = buildPaymentBreakdown(uiState.value, amount)
             val totalAmountCents = computeTotalAmountCents(breakdown)
-            val cancelButton = buildCancelButtonProperties(uiState.value)
-
             val eventId = UUID.randomUUID().toString()
             Timber.d("Starting preauth with eventId: $eventId, amount: $totalAmountCents")
 
-            koardSdk.preauth(
-                activity = activity,
-                amount = totalAmountCents,
-                breakdown = breakdown,
-                buttonProperties = cancelButton,
-                currency = "USD",
-                eventId = eventId
-            ).onEach { response ->
-                handleTransactionResponse(response)
-            }.launchIn(viewModelScope)
+            val tapTimeoutMs = TimeoutSettings.tapTimeoutMs
+
+            _uiState.update { it.copy(
+                showTransactionSheet = true,
+                activeTransactionTitle = "Preauthorization",
+                activeTransactionAmountLabel = "Preauthorize ${formatCentsToUSD(totalAmountCents)}",
+                pendingTransactionStarter = { buttonProps ->
+                    koardSdk.preauth(
+                        activity = activity,
+                        amount = totalAmountCents,
+                        breakdown = breakdown,
+                        buttonProperties = buttonProps,
+                        currency = "USD",
+                        eventId = eventId,
+                        tapTimeoutMs = tapTimeoutMs
+                    )
+                }
+            ) }
         } catch (t: Throwable) {
             Timber.e(t, "Preauth transaction failed")
             _uiState.update {
@@ -437,6 +460,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.update {
             it.copy(
                 isProcessing = true,
+                tapAttempts = 0,
                 errorMessage = null,
                 statusMessages = emptyList(),
                 finalStatus = null,
@@ -453,21 +477,29 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         try {
             val breakdown = buildPaymentBreakdown(uiState.value, amount)
             val totalAmountCents = computeTotalAmountCents(breakdown)
-            val cancelButton = buildCancelButtonProperties(uiState.value)
-
             val eventId = UUID.randomUUID().toString()
+            val tapTimeoutMs = TimeoutSettings.tapTimeoutMs
+
             Timber.d("Starting sale with eventId: $eventId, amount: $totalAmountCents")
 
-            koardSdk.sale(
-                activity = activity,
-                amount = totalAmountCents,
-                breakdown = breakdown,
-                buttonProperties = cancelButton,
-                currency = "USD",
-                eventId = eventId
-            ).onEach { response ->
-                handleTransactionResponse(response)
-            }.launchIn(viewModelScope)
+            // Show the sheet first so it can measure the cancel button position.
+            // The pending starter will be called once we have real coordinates.
+            _uiState.update { it.copy(
+                showTransactionSheet = true,
+                activeTransactionTitle = "Sale",
+                activeTransactionAmountLabel = "Sale for ${formatCentsToUSD(totalAmountCents)}",
+                pendingTransactionStarter = { buttonProps ->
+                    koardSdk.sale(
+                        activity = activity,
+                        amount = totalAmountCents,
+                        breakdown = breakdown,
+                        buttonProperties = buttonProps,
+                        currency = "USD",
+                        eventId = eventId,
+                        tapTimeoutMs = tapTimeoutMs
+                    )
+                }
+            ) }
         } catch (t: Throwable) {
             Timber.e(t, "Transaction failed")
             _uiState.update {
@@ -571,29 +603,57 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         return baseCents + surchargeCents
     }
 
-    private fun buildCancelButtonProperties(state: MainScreenUiState): List<ButtonProperties>? {
-        if (state.cancelButtonWidthDp <= 0 || state.cancelButtonHeightDp <= 0) {
-            return null
-        }
-        return listOf(
-            ButtonProperties(
-                "Cancel",
-                state.cancelButtonXCoordinateDp,
-                state.cancelButtonYCoordinateDp,
-                state.cancelButtonWidthDp,
-                state.cancelButtonHeightDp
-            )
-        )
+    private fun buildCancelButtonProperties(state: MainScreenUiState): List<ButtonProperties> {
+        // Use stored coordinates from previous transaction's onGloballyPositioned.
+        // Fall back to reasonable defaults if no coordinates are stored yet.
+        val x = if (state.cancelButtonWidthDp > 0) state.cancelButtonXCoordinateDp else 24
+        val y = if (state.cancelButtonHeightDp > 0) state.cancelButtonYCoordinateDp else 48
+        val w = if (state.cancelButtonWidthDp > 0) state.cancelButtonWidthDp else 48
+        val h = if (state.cancelButtonHeightDp > 0) state.cancelButtonHeightDp else 48
+        return listOf(ButtonProperties("Cancel", x, y, w, h))
     }
 
     private fun updateCancelButtonMetrics(xDp: Int, yDp: Int, widthDp: Int, heightDp: Int) {
-        _uiState.update {
-            it.copy(
+        var starterToRun: (suspend (List<ButtonProperties>) -> Flow<KoardTransactionResponse>)? = null
+
+        _uiState.update { current ->
+            val shouldStart = current.pendingTransactionStarter != null && current.activeTransactionFlow == null
+            if (shouldStart) {
+                starterToRun = current.pendingTransactionStarter
+            }
+
+            current.copy(
                 cancelButtonXCoordinateDp = xDp,
                 cancelButtonYCoordinateDp = yDp,
                 cancelButtonWidthDp = widthDp,
-                cancelButtonHeightDp = heightDp
+                cancelButtonHeightDp = heightDp,
+                pendingTransactionStarter = if (shouldStart) null else current.pendingTransactionStarter
             )
+        }
+
+        // If there's a pending transaction waiting for cancel button coordinates, start it once.
+        val starter = starterToRun
+        if (starter != null) {
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    val buttonProps = listOf(
+                        ButtonProperties("Cancel", xDp, yDp, widthDp, heightDp)
+                    )
+                    val flow = starter(buttonProps)
+                    _uiState.update { it.copy(
+                        activeTransactionFlow = flow,
+                        pendingTransactionStarter = null
+                    ) }
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to start pending transaction")
+                    _uiState.update { it.copy(
+                        showTransactionSheet = false,
+                        pendingTransactionStarter = null,
+                        isProcessing = false,
+                        errorMessage = e.message ?: "Failed to start transaction"
+                    ) }
+                }
+            }
         }
     }
 
@@ -625,20 +685,62 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
 
         when (response.actionStatus) {
             KoardTransactionActionStatus.OnProgress -> {
+                // Detect retry: cardDetected -> readyForTap means card was pulled away too fast
+                val previousStatus = uiState.value.currentReaderStatus
+                val isRetry = previousStatus == KoardReaderStatus.cardDetected &&
+                    response.readerStatus == KoardReaderStatus.readyForTap
+
                 _uiState.update {
                     it.copy(
-                        statusMessages = listOf(statusMessage),
+                        tapAttempts = if (isRetry) it.tapAttempts + 1 else it.tapAttempts,
+                        statusMessages = listOf(if (isRetry) "Please tap again" else statusMessage),
                         errorMessage = null
                     )
                 }
             }
 
             KoardTransactionActionStatus.OnFailure -> {
-                if (response.statusCode == 12) {
-                    _uiState.update { it.copy(statusMessages = listOf(statusMessage)) }
+                // Retryable failures — keep processing, prompt retry
+                val isRetryable = response.statusCode == 12 ||
+                    response.statusCode == null ||
+                    response.statusCode == 53 ||   // TransactionInterrupted
+                    response.statusCode == 42      // TransactionError
+
+                if (isRetryable) {
+                    _uiState.update {
+                        it.copy(
+                            tapAttempts = it.tapAttempts + 1,
+                            statusMessages = listOf("Please tap again"),
+                            currentReaderStatus = KoardReaderStatus.readyForTap
+                        )
+                    }
                     return
                 }
 
+                // Cancellation
+                val isCancellation = response.statusCode == 46 ||  // CancelTransactionInitiated
+                    response.statusCode == 102 ||                  // PosStateCancel
+                    response.finalStatus == KoardTransactionFinalStatus.Abort
+
+                if (isCancellation) {
+                    _uiState.update {
+                        it.copy(
+                            statusMessages = listOf("Transaction Cancelled"),
+                            finalStatus = "Cancelled",
+                            errorMessage = null,
+                            isProcessing = false,
+                            visaStatusCode = response.statusCode,
+                            visaStatusDescription = response.statusCodeDescription,
+                            visaDisplayMessage = response.displayMessage,
+                            visaReaderStatus = response.readerStatus.toString(),
+                            visaActionStatus = response.actionStatus.toString(),
+                            visaFinalStatus = response.finalStatus?.toString()
+                        )
+                    }
+                    return
+                }
+
+                // Non-retryable, non-cancellation failure
                 val failureMessage = buildString {
                     append("Transaction Failed")
                     response.displayMessage?.let { append("\n\n$it") }
@@ -684,8 +786,52 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                             visaFinalStatus = response.finalStatus?.toString()
                         )
                     }
+                } else if (txn != null && txn.statusReason == "partial_approval" && txn.gatewayTransactionResponse.authorizedAmount < txn.totalAmount) {
+                    // Partial approval — show the partial approval sheet
+                    val approved = txn.gatewayTransactionResponse.authorizedAmount
+                    val remaining = txn.totalAmount - approved
+                    _uiState.update {
+                        it.copy(
+                            statusMessages = listOf(statusMessage),
+                            finalStatus = null,
+                            transactionId = txn.transactionId,
+                            transaction = txn,
+                            isProcessing = false,
+                            showPartialApprovalSheet = true,
+                            partialApprovedAmount = approved,
+                            partialRemainingAmount = remaining,
+                            partialTotalAmount = txn.totalAmount,
+                            partialTransactionId = txn.transactionId,
+                            visaStatusCode = response.statusCode,
+                            visaStatusDescription = response.statusCodeDescription,
+                            visaDisplayMessage = response.displayMessage,
+                            visaReaderStatus = response.readerStatus.toString(),
+                            visaActionStatus = response.actionStatus.toString(),
+                            visaFinalStatus = response.finalStatus?.toString()
+                        )
+                    }
+                } else if (response.finalStatus is KoardTransactionFinalStatus.Abort) {
+                    // Cancellation via OnComplete + Abort
+                    _uiState.update {
+                        it.copy(
+                            statusMessages = listOf("Transaction Cancelled"),
+                            finalStatus = "Cancelled",
+                            transactionId = txn?.transactionId ?: response.transactionId,
+                            transaction = txn,
+                            isProcessing = false,
+                            errorMessage = null,
+                            visaStatusCode = response.statusCode,
+                            visaStatusDescription = response.statusCodeDescription,
+                            visaDisplayMessage = response.displayMessage,
+                            visaReaderStatus = response.readerStatus.toString(),
+                            visaActionStatus = response.actionStatus.toString(),
+                            visaFinalStatus = response.finalStatus?.toString()
+                        )
+                    }
                 } else {
-                    val failureMessage = if (isFailureOutcome) {
+                    val isFailure = response.finalStatus is KoardTransactionFinalStatus.Decline ||
+                        response.finalStatus is KoardTransactionFinalStatus.Failure
+                    val failureMessage = if (isFailure) {
                         buildString {
                             append(resolvedFinalStatus ?: "Transaction Failed")
                             response.displayMessage?.let { append("\n\n$it") }
@@ -747,16 +893,89 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    private fun dismissPartialApproval() {
+        _uiState.update {
+            it.copy(
+                showPartialApprovalSheet = false,
+                partialApprovedAmount = 0,
+                partialRemainingAmount = 0,
+                partialTotalAmount = 0,
+                partialTransactionId = null
+            )
+        }
+    }
+
+    private suspend fun tapAnotherCard(activity: Activity, txnId: String, remaining: Int) = withContext(Dispatchers.IO) {
+        if (remaining <= 0) return@withContext
+
+        // Clear old flow first so Compose remounts the sheet with the new flow
+        _uiState.update { it.copy(activeTransactionFlow = null) }
+
+        try {
+            val eventId = UUID.randomUUID().toString()
+            Timber.d("Starting partial auth completion: txnId=$txnId, remaining=$remaining")
+
+            val tapTimeoutMs = TimeoutSettings.tapTimeoutMs
+
+            _uiState.update { it.copy(
+                showTransactionSheet = true,
+                activeTransactionTitle = "Complete Authorization",
+                activeTransactionAmountLabel = "Remaining ${formatCentsToUSD(remaining)}",
+                pendingTransactionStarter = { buttonProps ->
+                    koardSdk.completePartialAuth(
+                        activity = activity,
+                        transactionId = txnId,
+                        amount = remaining,
+                        buttonProperties = buttonProps,
+                        currency = "USD",
+                        eventId = eventId,
+                        tapTimeoutMs = tapTimeoutMs
+                    )
+                }
+            ) }
+
+            val starter = uiState.value.pendingTransactionStarter
+            if (starter != null && uiState.value.activeTransactionFlow == null) {
+                val flow = starter(buildCancelButtonProperties(uiState.value))
+                _uiState.update {
+                    it.copy(
+                        activeTransactionFlow = flow,
+                        pendingTransactionStarter = null
+                    )
+                }
+            }
+        } catch (t: Throwable) {
+            Timber.e(t, "Partial auth completion failed")
+            _uiState.update {
+                it.copy(
+                    isProcessing = false,
+                    isCompletingPartialAuth = false,
+                    errorMessage = formatError(t)
+                )
+            }
+        }
+    }
+
     private fun dismissTransactionResult() {
         _uiState.update {
             it.copy(
+                showTransactionSheet = false,
+                activeTransactionFlow = null,
+                pendingTransactionStarter = null,
                 isProcessing = false,
+                tapAttempts = 0,
                 finalStatus = null,
                 statusMessages = emptyList(),
                 transactionId = null,
                 transaction = null,
                 errorMessage = null,
                 showSurchargeConfirmation = false,
+                showPartialApprovalSheet = false,
+                partialApprovedAmount = 0,
+                partialRemainingAmount = 0,
+                partialTotalAmount = 0,
+                partialTransactionId = null,
+                isCompletingPartialAuth = false,
                 visaStatusCode = null,
                 visaStatusDescription = null,
                 visaDisplayMessage = null,
@@ -877,6 +1096,17 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     fun onDispatch(intent: MainScreenIntent) {
         viewModelScope.launch { intents.emit(intent) }
     }
+
+    fun cancelTransaction() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                Timber.d("Cancelling transaction via direct tap")
+                koardSdk.cancelTransaction()
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to cancel transaction")
+            }
+        }
+    }
 }
 
 data class MainScreenUiState(
@@ -904,13 +1134,30 @@ data class MainScreenUiState(
     val surchargeAmountFixed: String = "",
     val surchargeType: AmountType = AmountType.PERCENTAGE,
 
-    // Transaction processing state
+    // Transaction sheet — shown when showTransactionSheet is true.
+    // Flow may be null initially while the sheet measures cancel button position.
+    val showTransactionSheet: Boolean = false,
+    val activeTransactionFlow: Flow<KoardTransactionResponse>? = null,
+    val activeTransactionTitle: String = "Transaction",
+    val activeTransactionAmountLabel: String? = null,
+    // Pending transaction params — used to start the SDK call after cancel button is measured
+    val pendingTransactionStarter: (suspend (List<com.visa.kic.sdk.common.ipc.ButtonProperties>) -> Flow<KoardTransactionResponse>)? = null,
+
+    // Legacy processing state (still used for surcharge flow)
     val isProcessing: Boolean = false,
     val statusMessages: List<String> = emptyList(),
     val finalStatus: String? = null,
     val transactionId: String? = null,
     val transaction: com.koardlabs.merchant.sdk.domain.KoardTransaction? = null,
     val errorMessage: String? = null,
+
+    // Partial approval
+    val showPartialApprovalSheet: Boolean = false,
+    val partialApprovedAmount: Int = 0,
+    val partialRemainingAmount: Int = 0,
+    val partialTotalAmount: Int = 0,
+    val partialTransactionId: String? = null,
+    val isCompletingPartialAuth: Boolean = false,
 
     // Surcharge confirmation
     val showSurchargeConfirmation: Boolean = false,
@@ -927,12 +1174,13 @@ data class MainScreenUiState(
     val visaFinalStatus: String? = null,
 
     // Reader status
+    val tapAttempts: Int = 0,
     val currentReaderStatus: com.koardlabs.merchant.sdk.domain.KoardReaderStatus? = null,
     val computedTotalCents: Int? = null,
     val cancelButtonXCoordinateDp: Int = 0,
     val cancelButtonYCoordinateDp: Int = 0,
     val cancelButtonWidthDp: Int = 0,
-    val cancelButtonHeightDp: Int = 0
+    val cancelButtonHeightDp: Int = 0,
 ) {
     val taxAmount: String
         get() = if (taxType == AmountType.PERCENTAGE) taxAmountPercentage else taxAmountFixed
@@ -964,6 +1212,8 @@ sealed class MainScreenIntent {
     data class OnSurchargeOverrideAmountChanged(val amount: String) : MainScreenIntent()
     data object OnSurchargeOverrideTypeToggled : MainScreenIntent()
     data class ConfirmSurcharge(val confirm: Boolean) : MainScreenIntent()
+    data class TapAnotherCard(val activity: Activity, val transactionId: String, val remainingAmount: Int) : MainScreenIntent()
+    data object DismissPartialApproval : MainScreenIntent()
     data class UpdateCancelButtonMetrics(
         val xDp: Int,
         val yDp: Int,

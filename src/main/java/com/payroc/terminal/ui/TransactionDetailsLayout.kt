@@ -1,4 +1,4 @@
-package com.payroc.terminal.ui
+package com.koard.android.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
@@ -44,20 +44,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.payroc.terminal.R
-import com.payroc.terminal.ui.theme.PayrocTheme
-import com.payroc.terminal.ui.theme.PayrocBlue
-import com.payroc.terminal.ui.theme.PayrocDarkText
-import com.payroc.terminal.ui.theme.PayrocLightGray
-import com.payroc.terminal.ui.theme.PayrocMediumGray
-import com.payroc.terminal.ui.theme.PayrocRed
-import com.payroc.terminal.ui.theme.PayrocWhite
-import com.payroc.terminal.utils.PhoneNumberVisualTransformation
+import com.koard.android.R
+import com.koard.android.ui.theme.KoardAndroidSDKTheme
+import com.koard.android.ui.theme.KoardGreen800
+import com.koard.android.ui.theme.KoardRed500
+import com.koard.android.utils.PhoneNumberVisualTransformation
 import com.koardlabs.merchant.sdk.domain.KoardTransactionStatus
 
-// Color aliases for readability
-private val KoardGreen800 get() = PayrocBlue
-private val KoardRed500 get() = PayrocRed
+private const val PARTIAL_APPROVAL_STATUS = "partial_approval"
 
 @Composable
 fun TransactionDetailsLayout(
@@ -72,9 +66,8 @@ fun TransactionDetailsLayout(
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .background(PayrocWhite, shape = RoundedCornerShape(16.dp))
-            .padding(vertical = 20.dp, horizontal = 20.dp),
+            .fillMaxSize()
+            .padding(vertical = 16.dp, horizontal = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Column(
@@ -83,29 +76,73 @@ fun TransactionDetailsLayout(
             Text(
                 stringResource(R.string.transaction_id_label, transactionDetailsUI.id),
                 fontWeight = FontWeight.Medium,
-                fontSize = 13.sp,
-                color = PayrocMediumGray
+                fontSize = 14.sp
             )
             LineItem(
                 label = stringResource(R.string.transaction_type),
                 itemValue = transactionDetailsUI.getTransactionTypeDisplayName(context)
             )
-            HorizontalDivider(thickness = .5.dp, color = PayrocLightGray)
+            HorizontalDivider(thickness = .4.dp)
             LineItem(stringResource(R.string.status), transactionDetailsUI.status.displayName)
-            HorizontalDivider(thickness = .5.dp, color = PayrocLightGray)
+            if (transactionDetailsUI.statusReason.isNotBlank()) {
+                HorizontalDivider(thickness = .4.dp)
+                LineItem("Status Reason", transactionDetailsUI.statusReason)
+            }
+            if (transactionDetailsUI.approvalCode.isNotBlank()) {
+                HorizontalDivider(thickness = .4.dp)
+                LineItem("Approval Code", transactionDetailsUI.approvalCode)
+            }
+            if (transactionDetailsUI.processorResponseCode.isNotBlank()) {
+                HorizontalDivider(thickness = .4.dp)
+                LineItem("Response Code", transactionDetailsUI.processorResponseCode)
+            }
+            if (transactionDetailsUI.processorResponseMessage.isNotBlank()) {
+                HorizontalDivider(thickness = .4.dp)
+                LineItem("Response", transactionDetailsUI.processorResponseMessage)
+            }
+            if (transactionDetailsUI.gatewayResponseMessage.isNotBlank()) {
+                HorizontalDivider(thickness = .4.dp)
+                LineItem("Gateway Response", transactionDetailsUI.gatewayResponseMessage)
+            }
+            HorizontalDivider(thickness = .4.dp)
             LineItem(stringResource(R.string.total_amount), transactionDetailsUI.totalFormatted)
-            HorizontalDivider(thickness = .5.dp, color = PayrocLightGray)
+            if (transactionDetailsUI.refunded > 0) {
+                HorizontalDivider(thickness = .4.dp)
+                LineItem(
+                    label = stringResource(R.string.refunded_label),
+                    itemValue = transactionDetailsUI.refundedFormatted,
+                    valueColor = Color(0xFFF6693E)
+                )
+            }
+            HorizontalDivider(thickness = .4.dp)
             LineItem(stringResource(R.string.subtotal), transactionDetailsUI.subtotalFormatted)
-            HorizontalDivider(thickness = .5.dp, color = PayrocLightGray)
+            HorizontalDivider(thickness = .4.dp)
             LineItem(stringResource(R.string.tax_amount), transactionDetailsUI.taxFormatted)
-            HorizontalDivider(thickness = .5.dp, color = PayrocLightGray)
+            HorizontalDivider(thickness = .4.dp)
             LineItem(stringResource(R.string.tip_amount), transactionDetailsUI.tipFormatted)
-            HorizontalDivider(thickness = .5.dp, color = PayrocLightGray)
+            HorizontalDivider(thickness = .4.dp)
             LineItem(stringResource(R.string.surcharge_amount), transactionDetailsUI.surchargeFormatted)
-            HorizontalDivider(thickness = .5.dp, color = PayrocLightGray)
+            HorizontalDivider(thickness = .4.dp)
             LineItem(stringResource(R.string.date), transactionDetailsUI.dateFormatted)
-            HorizontalDivider(thickness = .5.dp, color = PayrocLightGray)
+            HorizontalDivider(thickness = .4.dp)
             LineItem(stringResource(R.string.card), transactionDetailsUI.card)
+
+            if (transactionDetailsUI.reversed > 0) {
+                HorizontalDivider(thickness = .4.dp)
+                LineItem(
+                    label = stringResource(R.string.reversed_label),
+                    itemValue = transactionDetailsUI.reversedFormatted,
+                    valueColor = Color(0xFFF6693E)
+                )
+            }
+
+            // Show authorized & remaining amounts for partial approvals
+            if (transactionDetailsUI.isPartialApproval) {
+                HorizontalDivider(thickness = .4.dp)
+                LineItem(stringResource(R.string.authorized_amount), transactionDetailsUI.authorizedFormatted)
+                HorizontalDivider(thickness = .4.dp)
+                LineItem(stringResource(R.string.remaining_amount), transactionDetailsUI.remainingFormatted)
+            }
         }
 
         // Payment operation buttons for AUTHORIZED and CAPTURED transactions
@@ -114,8 +151,7 @@ fun TransactionDetailsLayout(
             Text(
                 text = "Payment Operations",
                 fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = PayrocDarkText,
+                fontSize = 16.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -155,6 +191,16 @@ fun TransactionDetailsLayout(
                     text = "Refund",
                     onClick = { onDispatch(TransactionDetailsIntent.OnRefundClick) }
                 )
+                KoardOutlinedButton(
+                    text = "Refund (EMV)",
+                    onClick = { onDispatch(TransactionDetailsIntent.OnEmvRefundClick) }
+                )
+                if (transactionDetailsUI.statusReason == PARTIAL_APPROVAL_STATUS) {
+                    KoardOutlinedButton(
+                        text = stringResource(R.string.complete_partial_auth),
+                        onClick = { onDispatch(TransactionDetailsIntent.OnCompletePartialAuthClick) }
+                    )
+                }
             }
         }
     }
@@ -189,19 +235,19 @@ private fun KoardOutlinedButton(
 }
 
 @Composable
-private fun LineItem(label: String, itemValue: String) {
+private fun LineItem(label: String, itemValue: String, valueColor: Color? = null) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, fontWeight = FontWeight.Medium, fontSize = 14.sp, color = PayrocDarkText)
+        Text(label, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+
         Text(
             itemValue,
-            fontSize = 14.sp,
-            color = PayrocMediumGray,
-            fontWeight = FontWeight.Normal,
-            textAlign = TextAlign.End
+            fontSize = 15.sp,
+            color = valueColor ?: MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .5f),
+            fontWeight = FontWeight.Medium
         )
     }
 }
@@ -318,7 +364,7 @@ private fun TransactionDetailsLayoutPreview() {
         currency = "USD",
         subtotal = 2500,
         taxAmount = 200,
-        taxRate = 8,
+        taxRate = 8.0,
         tipAmount = 50,
         surchargeAmount = 0.0,
         gateway = "Square",
@@ -337,7 +383,7 @@ private fun TransactionDetailsLayoutPreview() {
         simplifiedStatus = "Approved"
     )
 
-    PayrocTheme {
+    KoardAndroidSDKTheme {
         Column(Modifier.background(MaterialTheme.colorScheme.surface)) {
             TransactionDetailsLayout(
                 transactionDetailsUI = sampleTransaction,
