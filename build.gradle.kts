@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.payroc.terminal"
+    namespace = "com.koard.android"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.payroc.terminal"
+        applicationId = "com.koard.android"
         minSdk = 31
         targetSdk = 36
         versionCode = 102
@@ -35,17 +35,18 @@ android {
     flavorDimensions += "environment"
 
     productFlavors {
-        create("Prod") {
+        create("uat") {
             dimension = "environment"
-            buildConfigField("String", "ENVIRONMENT", "\"PROD\"")
-            buildConfigField("String", "API_KEY", "\"YOUR_API_KEY\"")
-        }
-
-        create("UAT") {
-            dimension = "environment"
+            isDefault = true
             buildConfigField("String", "ENVIRONMENT", "\"UAT\"")
             buildConfigField("String", "API_KEY", "\"YOUR_API_KEY\"")
             applicationIdSuffix = ".uat"
+        }
+
+        create("prod") {
+            dimension = "environment"
+            buildConfigField("String", "ENVIRONMENT", "\"PROD\"")
+            buildConfigField("String", "API_KEY", "\"YOUR_API_KEY\"")
         }
     }
 
@@ -72,7 +73,7 @@ android {
 androidComponents {
     beforeVariants { variantBuilder ->
         val isProdDebug = variantBuilder.buildType == "debug" &&
-            variantBuilder.productFlavors.any { it.second == "Prod" }
+            variantBuilder.productFlavors.any { it.second == "prod" }
         if (isProdDebug) {
             variantBuilder.enable = false
         }
@@ -82,7 +83,7 @@ androidComponents {
 dependencies {
     // Koard Android SDK - uses published artifact from local Maven repo (demo/libs-maven)
     // Run ./publish-sdk-locally.sh after making SDK changes
-    implementation("com.koardlabs:koard-android-sdk:1.0.2")
+    implementation("com.koardlabs:koard-android-sdk:1.0.5")
 
     implementation(platform(libs.androidx.compose.bom))
 

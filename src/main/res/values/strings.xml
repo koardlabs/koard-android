@@ -56,7 +56,7 @@
     <string name="transaction_failure_generic">Transaction failed. Review the status details and try again.</string>
     <string name="transaction_generic_error">Unable to start the transaction. Try again.</string>
     <string name="transaction_final_status_approve">Approved</string>
-    <string name="transaction_final_status_abort">Aborted</string>
+    <string name="transaction_final_status_abort">Cancelled</string>
     <string name="transaction_final_status_decline">Declined</string>
     <string name="transaction_final_status_failure">Failed</string>
     <string name="transaction_final_status_alt_service">Alternate Service</string>
@@ -165,4 +165,11 @@
     <string name="settings_transaction_config_header">Transaction Config</string>
     <string name="settings_transaction_config_empty">No transaction config available.</string>
     <string name="settings_transaction_config_error">Unable to fetch transaction config.</string>
+
+    <!-- Partial Approval -->
+    <string name="authorized_amount">Authorized Amount</string>
+    <string name="remaining_amount">Remaining Amount</string>
+    <string name="complete_partial_auth">Complete Partial Auth</string>
+    <string name="refunded_label">Refunded</string>
+    <string name="reversed_label">Reversed</string>
 </resources>

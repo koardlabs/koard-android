@@ -1,4 +1,4 @@
-package com.payroc.terminal
+package com.koard.android
 
 import android.app.Application
 import com.koardlabs.merchant.sdk.KoardMerchantSdk
@@ -20,18 +20,15 @@ class DemoApplication : Application() {
             withContext(Dispatchers.IO) {
                 val environment = when (BuildConfig.ENVIRONMENT) {
                     "PROD" -> KoardEnvironment.PROD
-                    else -> KoardEnvironment.Custom( // UAT
-                        koardApiUrl = "https://development-160452576009.us-central1.run.app",
-                        enrollmentUrl = "https://development-160452576009.us-central1.run.app",
-                        visaCloudPosUrl = "https://sandbox.cloudpos.digital.visa.com",
-                        name = "UAT"
-                    )
+                    "UAT" -> KoardEnvironment.UAT
+                    else -> KoardEnvironment.UAT
                 }
 
                 KoardMerchantSdk.initialize(
                     application = this@DemoApplication,
                     apiKey = BuildConfig.API_KEY,
-                    environment = environment
+                    environment = environment,
+                    timeoutSeconds = 30L
                 )
             }
         }
