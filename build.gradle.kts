@@ -83,7 +83,7 @@ androidComponents {
 dependencies {
     // Koard Android SDK - uses published artifact from local Maven repo (demo/libs-maven)
     // Run ./publish-sdk-locally.sh after making SDK changes
-    implementation("com.koardlabs:koard-android-sdk:1.0.5")
+    implementation("com.koardlabs:koard-android-sdk:1.0.6")
 
     implementation(platform(libs.androidx.compose.bom))
 
