@@ -636,6 +636,6 @@ fun formatCentsToUSD(cents: Int): String {
  * Uses fallback coordinates that match the sheet's layout.
  * After the first transaction, actual coordinates from onGloballyPositioned should be used.
  */
-fun defaultCancelButtonProperties(): List<com.visa.kic.sdk.common.ipc.ButtonProperties> {
-    return listOf(com.visa.kic.sdk.common.ipc.ButtonProperties("Cancel", 24, 48, 48, 48))
+fun defaultCancelButtonProperties(): List<com.koardlabs.merchant.sdk.domain.KoardButtonProperties> {
+    return listOf(com.koardlabs.merchant.sdk.domain.KoardButtonProperties("Cancel", 24, 48, 48, 48))
 }
