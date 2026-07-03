@@ -536,7 +536,7 @@ class TransactionDetailsViewModel(application: Application) : AndroidViewModel(a
     }
 
     fun updateCancelButtonMetrics(x: Int, y: Int, w: Int, h: Int) {
-        var starterToRun: (suspend (List<com.visa.kic.sdk.common.ipc.ButtonProperties>) -> Flow<KoardTransactionResponse>)? = null
+        var starterToRun: (suspend (List<com.koardlabs.merchant.sdk.domain.KoardButtonProperties>) -> Flow<KoardTransactionResponse>)? = null
 
         _uiState.update { current ->
             val shouldStart = current.pendingTransactionStarter != null && current.activeTransactionFlow == null
@@ -558,7 +558,7 @@ class TransactionDetailsViewModel(application: Application) : AndroidViewModel(a
             viewModelScope.launch(Dispatchers.IO) {
                 try {
                     val buttonProps = listOf(
-                        com.visa.kic.sdk.common.ipc.ButtonProperties("Cancel", x, y, w, h)
+                        com.koardlabs.merchant.sdk.domain.KoardButtonProperties("Cancel", x, y, w, h)
                     )
                     val flow = starter(buttonProps)
                     _uiState.update { it.copy(
@@ -594,7 +594,7 @@ data class TransactionDetailsUiState(
     val activeTransactionFlow: Flow<KoardTransactionResponse>? = null,
     val activeTransactionTitle: String? = null,
     val activeTransactionAmountLabel: String? = null,
-    val pendingTransactionStarter: (suspend (List<com.visa.kic.sdk.common.ipc.ButtonProperties>) -> Flow<KoardTransactionResponse>)? = null,
+    val pendingTransactionStarter: (suspend (List<com.koardlabs.merchant.sdk.domain.KoardButtonProperties>) -> Flow<KoardTransactionResponse>)? = null,
     val cancelButtonXDp: Int = 0,
     val cancelButtonYDp: Int = 0,
     val cancelButtonWidthDp: Int = 0,

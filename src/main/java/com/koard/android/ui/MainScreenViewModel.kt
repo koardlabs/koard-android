@@ -15,7 +15,7 @@ import com.koardlabs.merchant.sdk.domain.KoardTransactionFinalStatus
 import com.koardlabs.merchant.sdk.domain.KoardTransactionResponse
 import com.koardlabs.merchant.sdk.domain.PaymentBreakdown
 import com.koardlabs.merchant.sdk.domain.Surcharge
-import com.visa.kic.sdk.common.ipc.ButtonProperties
+import com.koardlabs.merchant.sdk.domain.KoardButtonProperties
 import com.koardlabs.merchant.sdk.domain.exception.KoardException
 import com.koardlabs.merchant.sdk.domain.KoardErrorType
 import androidx.compose.ui.graphics.Color
@@ -603,18 +603,18 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         return baseCents + surchargeCents
     }
 
-    private fun buildCancelButtonProperties(state: MainScreenUiState): List<ButtonProperties> {
+    private fun buildCancelButtonProperties(state: MainScreenUiState): List<KoardButtonProperties> {
         // Use stored coordinates from previous transaction's onGloballyPositioned.
         // Fall back to reasonable defaults if no coordinates are stored yet.
         val x = if (state.cancelButtonWidthDp > 0) state.cancelButtonXCoordinateDp else 24
         val y = if (state.cancelButtonHeightDp > 0) state.cancelButtonYCoordinateDp else 48
         val w = if (state.cancelButtonWidthDp > 0) state.cancelButtonWidthDp else 48
         val h = if (state.cancelButtonHeightDp > 0) state.cancelButtonHeightDp else 48
-        return listOf(ButtonProperties("Cancel", x, y, w, h))
+        return listOf(KoardButtonProperties("Cancel", x, y, w, h))
     }
 
     private fun updateCancelButtonMetrics(xDp: Int, yDp: Int, widthDp: Int, heightDp: Int) {
-        var starterToRun: (suspend (List<ButtonProperties>) -> Flow<KoardTransactionResponse>)? = null
+        var starterToRun: (suspend (List<KoardButtonProperties>) -> Flow<KoardTransactionResponse>)? = null
 
         _uiState.update { current ->
             val shouldStart = current.pendingTransactionStarter != null && current.activeTransactionFlow == null
@@ -637,7 +637,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             viewModelScope.launch(Dispatchers.IO) {
                 try {
                     val buttonProps = listOf(
-                        ButtonProperties("Cancel", xDp, yDp, widthDp, heightDp)
+                        KoardButtonProperties("Cancel", xDp, yDp, widthDp, heightDp)
                     )
                     val flow = starter(buttonProps)
                     _uiState.update { it.copy(
@@ -1141,7 +1141,7 @@ data class MainScreenUiState(
     val activeTransactionTitle: String = "Transaction",
     val activeTransactionAmountLabel: String? = null,
     // Pending transaction params — used to start the SDK call after cancel button is measured
-    val pendingTransactionStarter: (suspend (List<com.visa.kic.sdk.common.ipc.ButtonProperties>) -> Flow<KoardTransactionResponse>)? = null,
+    val pendingTransactionStarter: (suspend (List<com.koardlabs.merchant.sdk.domain.KoardButtonProperties>) -> Flow<KoardTransactionResponse>)? = null,
 
     // Legacy processing state (still used for surcharge flow)
     val isProcessing: Boolean = false,

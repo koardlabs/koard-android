@@ -82,7 +82,7 @@ To update to a newer version of the Koard SDK:
 1. Replace the artifacts inside `libs-maven/com/koardlabs/koard-android-sdk/` with the updated version (AAR, POM, and metadata files).
 2. Update the version in `build.gradle.kts`:
    ```kotlin
-   implementation("com.koardlabs:koard-android-sdk:1.0.5")
+   implementation("com.koardlabs:koard-android-sdk:1.0.6")
    ```
 3. Rebuild: `./gradlew assembleUatDebug`
 
