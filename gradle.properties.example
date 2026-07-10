@@ -1,0 +1,5 @@
+# GitHub Packages credentials for resolving com.koardlabs:koard-android-sdk.
+# GitHub Packages requires a token with `read:packages` even for public packages.
+# Copy these into ~/.gradle/gradle.properties (do NOT commit real tokens):
+gpr.user=YOUR_GITHUB_USERNAME
+gpr.key=YOUR_GITHUB_PAT_WITH_read_packages
