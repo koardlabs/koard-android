@@ -45,8 +45,6 @@ Prod debug builds are disabled — use `prodRelease` for production.
 ## Project Structure
 
 - `settings.gradle.kts` -- resolves the Koard SDK (`com.koard:koard-android-sdk`) from `mavenCentral()`; no credentials required.
-- `libs-maven/` -- the release artifacts (fat AAR bundled with the KiC thin client, plus POM/metadata); the source of truth that `scripts/publish-maven-central.sh` publishes to Maven Central.
-- `scripts/publish-maven-central.sh` -- publishes the prebuilt SDK artifacts under `libs-maven/` to Maven Central (requires a Central token and a GPG signing key).
 - `build.gradle.kts` -- Compose-based Android app with `uat` and `prod` flavors.
 - `src/main/java/com/koard/android/` -- Jetpack Compose UI:
   - `MainActivity.kt` -- NFC lifecycle registration (`onResume`/`onPause`)
@@ -78,20 +76,11 @@ This prevents Google Play from filtering out POS devices (Sunmi D3, iMin Swan 1 
 
 ## Updating the SDK
 
-To publish and consume a newer version of the Koard SDK:
+To move to a newer SDK version, bump the coordinate in `build.gradle.kts` and rebuild:
 
-1. Drop the new artifacts (AAR, POM, metadata) into `libs-maven/com/koardlabs/koard-android-sdk/<version>/`.
-2. Publish them to Maven Central (requires a Central token and GPG signing key):
-   ```bash
-   ./scripts/publish-maven-central.sh <version>
-   ```
-   The published coordinate is `com.koard:koard-android-sdk:<version>`.
-3. Bump the version in `build.gradle.kts`:
-   ```kotlin
-   implementation("com.koard:koard-android-sdk:<version>")
-   ```
-4. Rebuild: `./gradlew assembleUatDebug`
-
+```kotlin
+implementation("com.koard:koard-android-sdk:<version>")
+```
 ## Troubleshooting
 
 - **SDK dependency not found**: Ensure `mavenCentral()` is in your `settings.gradle.kts` repositories and that the version referenced in `build.gradle.kts` exists on Maven Central (see *Updating the SDK*).
