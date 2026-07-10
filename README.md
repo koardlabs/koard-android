@@ -9,24 +9,35 @@ This Jetpack Compose application exercises the Koard Merchant SDK end to end: au
 - Physical Android 12+ device with NFC hardware
 - Visa Tap to Pay Ready app installed on the device (minimum version **26.06.10**)
 - Koard merchant credentials (API key from Koard dashboard)
+- A GitHub token with the `read:packages` scope (the SDK is resolved from GitHub Packages)
 
 ## Quick Start
 
-1. **Configure credentials**
+1. **Configure GitHub Packages access**
+   The Koard SDK is published to GitHub Packages, which requires authentication
+   even for public packages. Add a GitHub token with the `read:packages` scope to
+   `~/.gradle/gradle.properties` (template in `gradle.properties.example`):
+   ```properties
+   gpr.user=YOUR_GITHUB_USERNAME
+   gpr.key=YOUR_GITHUB_TOKEN_WITH_read_packages
+   ```
+   Or export `GITHUB_ACTOR` and `GITHUB_TOKEN` in your environment instead.
+
+2. **Configure credentials**
    Edit `build.gradle.kts` and replace the placeholder API key in each product flavor:
    ```kotlin
    buildConfigField("String", "API_KEY", "\"YOUR_API_KEY\"")
    ```
    UAT and PROD flavors can point to different API keys and server environments.
 
-2. **Build & install**
+3. **Build & install**
    ```bash
    ./gradlew assembleUatDebug
    ./gradlew installUatDebug
    ```
    Alternatively, open this project directory directly in Android Studio and use the standard Run/Debug targets.
 
-3. **Launch the app and follow the flow**
+4. **Launch the app and follow the flow**
    - Log in with your merchant code and PIN on the login screen.
    - Use **Select Location** to choose an available merchant location.
    - The SDK automatically enrolls the device after login and location selection.
@@ -44,8 +55,9 @@ Prod debug builds are disabled — use `prodRelease` for production.
 
 ## Project Structure
 
-- `settings.gradle.kts` -- configures this Gradle project to pull dependencies from the bundled `libs-maven/` directory.
-- `libs-maven/` -- self-contained local Maven repository that houses the Koard SDK artifact (fat AAR bundled with KiC thin client).
+- `settings.gradle.kts` -- resolves the Koard SDK (`com.koardlabs:koard-android-sdk`) from the GitHub Packages Maven registry, with credentials from `gpr.user`/`gpr.key` (or `GITHUB_ACTOR`/`GITHUB_TOKEN`).
+- `libs-maven/` -- the release artifacts (fat AAR bundled with the KiC thin client, plus POM/metadata); the source of truth that `scripts/publish-gh-packages.sh` publishes to GitHub Packages.
+- `scripts/publish-gh-packages.sh` -- publishes the SDK artifacts under `libs-maven/` to GitHub Packages (requires a `write:packages` token).
 - `build.gradle.kts` -- Compose-based Android app with `uat` and `prod` flavors.
 - `src/main/java/com/koard/android/` -- Jetpack Compose UI:
   - `MainActivity.kt` -- NFC lifecycle registration (`onResume`/`onPause`)
@@ -77,18 +89,22 @@ This prevents Google Play from filtering out POS devices (Sunmi D3, iMin Swan 1 
 
 ## Updating the SDK
 
-To update to a newer version of the Koard SDK:
+To publish and consume a newer version of the Koard SDK:
 
-1. Replace the artifacts inside `libs-maven/com/koardlabs/koard-android-sdk/` with the updated version (AAR, POM, and metadata files).
-2. Update the version in `build.gradle.kts`:
-   ```kotlin
-   implementation("com.koardlabs:koard-android-sdk:1.0.6")
+1. Drop the new artifacts (AAR, POM, metadata) into `libs-maven/com/koardlabs/koard-android-sdk/<version>/`.
+2. Publish them to GitHub Packages (requires a token with `write:packages`):
+   ```bash
+   GH_PACKAGES_TOKEN=<token> ./scripts/publish-gh-packages.sh <version>
    ```
-3. Rebuild: `./gradlew assembleUatDebug`
+3. Bump the version in `build.gradle.kts`:
+   ```kotlin
+   implementation("com.koardlabs:koard-android-sdk:<version>")
+   ```
+4. Rebuild: `./gradlew assembleUatDebug`
 
 ## Troubleshooting
 
-- **SDK dependency not found**: Ensure `libs-maven/` contains the `com/koardlabs/koard-android-sdk` artifacts at the version referenced in `build.gradle.kts`.
+- **SDK dependency not found / 401 or 403 from `maven.pkg.github.com`**: GitHub Packages requires authentication. Ensure `gpr.user`/`gpr.key` (or `GITHUB_ACTOR`/`GITHUB_TOKEN`) are set with a valid `read:packages` token, and that the version referenced in `build.gradle.kts` has been published (see *Updating the SDK*).
 - **Enrollment errors**: Confirm you are authenticated, have selected a location, and the Visa Tap to Pay Ready app is installed (minimum version 26.06.10).
 - **NFC not available**: Verify the device has NFC hardware and that enrollment has completed. The readiness banner on the home screen will highlight missing prerequisites.
 - **"Could not load enrolment / txn config blobs" (error 17)**: This usually means stale enrollment data from a previous merchant. Log out and log back in -- the SDK clears enrollment state on logout. If the error persists, unenroll the device from the Settings screen and re-enroll.
