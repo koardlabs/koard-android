@@ -177,44 +177,11 @@ lifecycleScope.launch {
 }
 ```
 
-`setActiveLocation(locationId: String)` must be called (and succeed) before attempting any device enrollment path. Both `enableNfcTransactionsAsync()` (production) and `enrollDevice()` (demo/testing) now throw a `KoardException` if no location is active. Use the readiness state to surface these requirements to the end user.
+`setActiveLocation(locationId: String)` must be called (and succeed) before enrolling. `enrollDevice()` throws a `KoardException` if no location is active. Use the readiness state to surface these requirements to the end user.
 
-#### Production enrollment (Visa Cloud POS keys)
+#### Device enrollment
 
-Enable NFC transactions by configuring the device with Visa-provided keys:
-
-```kotlin
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-
-suspend fun enableNfcPayments() {
-    withContext(Dispatchers.IO) {
-        val sdk = KoardMerchantSdk.getInstance()
-
-        // These certificates are provided during merchant onboarding
-        val serverEncPub = "your-server-encryption-public-key"
-        val serverAuthPub = "your-server-auth-public-key"
-
-        try {
-            sdk.enableNfcTransactionsAsync(
-                serverEncPub = serverEncPub,
-                serverAuthPub = serverAuthPub
-            )
-
-            // Check if NFC is now supported
-            if (sdk.isNfcSupported) {
-                println("NFC payments enabled")
-            }
-        } catch (e: Exception) {
-            println("Failed to enable NFC: ${e.message}")
-        }
-    }
-}
-```
-
-#### Demo/local enrollment (embedded certificates)
-
-For demo builds, `enrollDevice()` drives the entire certificate + enrollment process using embedded Visa test keys. This helper should only be used after selecting a location, and it will surface errors through `KoardException.error.shortMessage`:
+After `login()` succeeds and a location is active, call `enrollDevice()`:
 
 ```kotlin
 lifecycleScope.launch(Dispatchers.IO) {
@@ -712,8 +679,8 @@ Main SDK class providing all payment functionality.
 
 #### NFC Configuration
 
-- `enableNfcTransactionsAsync(serverEncPub: String, serverAuthPub: String)`: Enable NFC payments
-- `enrollDevice(): String`: Demo/testing helper that provisions the device using embedded certificates
+- `enrollDevice(): String`: Enrolls the device for tap-to-pay.
+- `enableNfcTransactionsAsync(serverEncPub: String, serverAuthPub: String)`: Advanced enrollment entry point.
 - `registerActivityForNfc(activity: Activity)`: Register activity for NFC events
 - `unregisterActivityForNfc(activity: Activity)`: Unregister activity
 - `isNfcSupported: Boolean`: Check NFC support status
