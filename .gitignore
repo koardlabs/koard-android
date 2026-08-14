@@ -66,10 +66,6 @@ keystore.properties
 Thumbs.db
 
 # ─── Local Maven repo (checksums only — keep the actual artifacts) ────────────
-libs-maven/**/*.md5
-libs-maven/**/*.sha1
-libs-maven/**/*.sha256
-libs-maven/**/*.sha512
 
 # ─── Secrets / API keys (never commit these) ─────────────────────────────────
 *.env
