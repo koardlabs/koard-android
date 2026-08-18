@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the Koard Android SDK (`com.koardlabs:koard-android-sdk`)
+All notable changes to the Koard Android SDK (`com.koard:koard-android-sdk`)
 are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com),
 and this project adheres to [Semantic Versioning](https://semver.org).
 
