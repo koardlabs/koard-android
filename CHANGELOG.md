@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the Koard Android SDK (`com.koardlabs:koard-android-sdk`)
+All notable changes to the Koard Android SDK (`com.koard:koard-android-sdk`)
 are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com),
 and this project adheres to [Semantic Versioning](https://semver.org).
 
@@ -11,6 +11,66 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 > versa) — audit your `try/catch` and exhaustive `when` blocks.
 
 ## [Unreleased]
+
+## [1.0.7] — 2026-09-18
+
+### Fixed
+
+- Preserve `SURCHARGE_PENDING` transaction status and display it as Surcharge
+  Pending instead of collapsing it into Pending.
+
+- Fixed a consumer-rule packaging defect that could make login and other API
+  calls throw `java.lang.Class cannot be cast to java.lang.reflect.ParameterizedType`
+  in minified release apps, before an HTTP request was sent. The AAR now retains
+  Retrofit coroutine/response generic metadata under R8 full mode.
+- Relocated bundled dependency shrinker rules alongside their classes, and
+  included the complete SDK/dependency base rules in both the AAR's ordinary
+  consumer rules and its targeted R8 rules. Bundled serialization rules no longer
+  displace the SDK's reflection protections.
+
+- Handle Tink's optional static-analysis annotations in the packaged consumer
+  rules so minified host apps need no matching app-side warning suppressions.
+
+### Added
+
+- Additional reader statuses for phone verification, card removal/retry, signature,
+  authorization, practice mode, and PIN/CVM outcomes.
+
+- Optional `JSONObject` transaction metadata on `sale`, `preauth`, `refund`, and
+  `refundEmv`, including nested JSON values.
+- Activity-based `refund(..., withTap = true)` returning transaction events for
+  a card-present refund; the existing refund APIs remain available.
+- Suspend `deinit()` for best-effort reader unenrollment, session and service
+  teardown, lifecycle-callback cleanup, and API-key/singleton clearing.
+- Static `KoardMerchantSdk.isInitialized()` to check instance availability before
+  calling `getInstance()`. This does not replace reader readiness checks.
+
+### Demo
+
+- Includes the signed 1.0.7 Maven artifact, POM, and checksums in `libs-maven`.
+- Sends metadata with sales, preauthorizations, API refunds, and tap refunds.
+- Adds **Reset SDK and sign out** using `deinit()` and `isInitialized()`, with
+  coordinated NFC reattachment and fresh SDK access after reinitialization.
+- Enables minification in release builds and handles the new reader statuses.
+- Disables SDK logging explicitly (`KoardLogLevel.NONE`) and makes release
+  builds non-debuggable, without a Timber debug logger.
+
+### Upgrade from 1.0.6
+
+- Exhaustive `when` expressions over `KoardReaderStatus` must handle the new enum
+  values or add an `else` branch. The demo handles each new reader status.
+
+- Use `com.koard:koard-android-sdk:1.0.7` and clean-rebuild the app and any native
+  Flutter/React Native or separately compiled SDK wrapper. New optional payment
+  parameters preserve Kotlin source calls but change JVM method signatures.
+  Java callers must supply the additional metadata argument (`null` if unused).
+- No extra Koard ProGuard rules, disabling R8, or login/enrollment flow changes
+  are required for this fix when consuming the complete AAR. The lifecycle and
+  metadata APIs are optional.
+- Retains Visa KiC connector **25.06.20** and `Int` amount parameters. This release
+  does not include the 25.06.22 connector or the `Long` amount API migration.
+- See the README's **Minification, ProGuard, and R8** section for the cause,
+  packaging fix, and release-build verification steps.
 
 ## [1.0.6]
 

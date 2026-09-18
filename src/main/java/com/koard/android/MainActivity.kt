@@ -9,15 +9,11 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import com.koard.android.navigation.KoardNavigation
 import com.koard.android.ui.theme.KoardAndroidSDKTheme
-import com.koardlabs.merchant.sdk.KoardMerchantSdk
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 
 class MainActivity : ComponentActivity() {
-    private val nfcMutex = Mutex()
+    @Volatile private var isResumed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,22 +29,30 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            nfcMutex.withLock {
-                Timber.v("Registering activity for NFC")
-                KoardMerchantSdk.getInstance().registerActivityForNfc(this@MainActivity)
-            }
-        }
+        isResumed = true
+        refreshNfcRegistration()
     }
 
     override fun onPause() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            nfcMutex.withLock {
+        isResumed = false
+        lifecycleScope.launch {
+            (application as DemoApplication).withInitializedSdk { sdk ->
                 Timber.v("Unregistering activity for NFC")
-                KoardMerchantSdk.getInstance().unregisterActivityForNfc(this@MainActivity)
+                sdk.unregisterActivityForNfc(this@MainActivity)
             }
         }
         super.onPause()
+    }
+
+    /** Reattach the currently resumed Activity after Settings replaces the SDK. */
+    fun refreshNfcRegistration() {
+        lifecycleScope.launch {
+            (application as DemoApplication).withInitializedSdk { sdk ->
+                if (isResumed) {
+                    Timber.v("Registering activity for NFC")
+                    sdk.registerActivityForNfc(this@MainActivity)
+                }
+            }
+        }
     }
 }

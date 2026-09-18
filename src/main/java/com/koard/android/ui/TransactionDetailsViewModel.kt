@@ -1,6 +1,7 @@
 package com.koard.android.ui
 
 import android.app.Application
+import com.koard.android.utils.transactionMetadata
 import android.content.Context
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Email
@@ -42,7 +43,7 @@ class TransactionDetailsViewModel(application: Application) : AndroidViewModel(a
     private val _effects = Channel<TransactionDetailsEffect>()
     val effects = _effects.receiveAsFlow()
 
-    private val koardSdk = KoardMerchantSdk.getInstance()
+    private val koardSdk get() = KoardMerchantSdk.getInstance()
 
     init {
         viewModelScope.launch {
@@ -315,7 +316,7 @@ class TransactionDetailsViewModel(application: Application) : AndroidViewModel(a
                     koardSdk.adjust(transactionId, tipType, amount, tipPercentage)
                 }
                 PaymentOperation.REFUND -> {
-                    koardSdk.refund(transactionId, amount)
+                    koardSdk.refund(transactionId, amount, metadata = transactionMetadata())
                 }
                 PaymentOperation.COMPLETE_PARTIAL_AUTH -> {
                     // Handled above before withContext(Dispatchers.IO)
@@ -512,10 +513,12 @@ class TransactionDetailsViewModel(application: Application) : AndroidViewModel(a
                 activeTransactionTitle = "EMV Refund",
                 activeTransactionAmountLabel = "Refund ${formatCentsToUSD(refundAmount)}",
                 pendingTransactionStarter = { buttonProps ->
-                    koardSdk.refundEmv(
+                    koardSdk.refund(
                         activity = activity,
                         transactionId = transactionId,
                         amount = refundAmount,
+                        withTap = true,
+                        metadata = transactionMetadata(),
                         buttonProperties = buttonProps,
                         eventId = java.util.UUID.randomUUID().toString()
                     )

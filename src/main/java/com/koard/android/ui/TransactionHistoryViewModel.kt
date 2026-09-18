@@ -29,7 +29,7 @@ class TransactionHistoryViewModel(application: Application) : AndroidViewModel(a
     private val _effects = Channel<TransactionHistoryEffect>()
     val effects = _effects.receiveAsFlow()
 
-    private val koardSdk = KoardMerchantSdk.getInstance()
+    private val koardSdk get() = KoardMerchantSdk.getInstance()
 
     init {
         viewModelScope.launch {

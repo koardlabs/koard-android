@@ -35,8 +35,8 @@ fun KoardNavigation(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController()
 ) {
-    val sdk = KoardMerchantSdk.getInstance()
-    val isAuthenticated = sdk.isAuthenticated
+    val isAuthenticated = KoardMerchantSdk.isInitialized() &&
+        KoardMerchantSdk.getInstance().isAuthenticated
 
     NavHost(
         navController = navController,
