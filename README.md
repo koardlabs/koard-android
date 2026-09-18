@@ -8,7 +8,7 @@ SDK **1.0.7** fixes login reflection failures in minified apps and adds transact
 
 - Android Studio Hedgehog (or newer) with the Android SDK 36 platform installed
 - JDK 21
-- Physical Android 12+ device with NFC hardware
+- Physical Android 13+ (API 33+) device with NFC hardware
 - Visa Tap to Pay Ready app installed on the device (minimum version **26.06.10**)
 - Koard merchant credentials (API key from Koard dashboard)
 
