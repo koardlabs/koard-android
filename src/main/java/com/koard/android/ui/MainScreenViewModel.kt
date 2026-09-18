@@ -5,6 +5,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.koard.android.R
+import com.koard.android.utils.transactionMetadata
 
 import com.koardlabs.merchant.sdk.KoardMerchantSdk
 import com.koardlabs.merchant.sdk.domain.AmountType
@@ -38,7 +39,7 @@ import java.util.UUID
 
 class MainScreenViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val koardSdk = KoardMerchantSdk.getInstance()
+    private val koardSdk get() = KoardMerchantSdk.getInstance()
 
     private val _uiState = MutableStateFlow(
         MainScreenUiState(
@@ -425,7 +426,8 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                         buttonProperties = buttonProps,
                         currency = "USD",
                         eventId = eventId,
-                        tapTimeoutMs = tapTimeoutMs
+                        tapTimeoutMs = tapTimeoutMs,
+                        metadata = transactionMetadata()
                     )
                 }
             ) }
@@ -496,7 +498,8 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                         buttonProperties = buttonProps,
                         currency = "USD",
                         eventId = eventId,
-                        tapTimeoutMs = tapTimeoutMs
+                        tapTimeoutMs = tapTimeoutMs,
+                        metadata = transactionMetadata()
                     )
                 }
             ) }

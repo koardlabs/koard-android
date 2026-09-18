@@ -13,15 +13,16 @@ android {
         applicationId = "com.koard.android"
         minSdk = 31
         targetSdk = 36
-        versionCode = 102
-        versionName = "1.0.2"
+        versionCode = 107
+        versionName = "1.0.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isDebuggable = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -81,8 +82,8 @@ androidComponents {
 }
 
 dependencies {
-    // Koard Android SDK — resolved from Maven Central.
-    implementation("com.koard:koard-android-sdk:1.0.6")
+    // Exact 1.0.7 release in libs-maven; same com.koard coordinate as Maven Central.
+    implementation("com.koard:koard-android-sdk:1.0.7")
 
     implementation(platform(libs.androidx.compose.bom))
 

@@ -18,6 +18,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -30,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
@@ -46,14 +49,18 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewModelScope
 import com.koard.android.R
+import com.koard.android.DemoApplication
+import com.koard.android.MainActivity
 
 import com.koardlabs.merchant.sdk.KoardMerchantSdk
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 @Composable
@@ -64,6 +71,17 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
+    val activity = LocalContext.current as? MainActivity
+
+    // Keep navigation and transaction controls inaccessible during teardown.
+    if (uiState.isResetting) {
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            title = { Text("Resetting SDK") },
+            text = { CircularProgressIndicator() }
+        )
+    }
 
     // Refresh settings every time the screen is displayed
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -109,6 +127,7 @@ fun SettingsScreen(
 
         // SDK Status
         StatusRow("SDK Status", uiState.sdkStatusMessage)
+        StatusRow("SDK Initialized", uiState.isInitialized.toString())
         StatusRow("Device Enrolled", uiState.isDeviceEnrolled.toString())
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -137,7 +156,7 @@ fun SettingsScreen(
         if (uiState.canUnenroll) {
             Button(
                 onClick = { viewModel.unenrollDevice() },
-                enabled = !uiState.isUnenrolling,
+                enabled = !uiState.isUnenrolling && !uiState.isSessionBusy && uiState.isInitialized,
                 modifier = Modifier.fillMaxWidth(),
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error
@@ -162,13 +181,32 @@ fun SettingsScreen(
 
         // Logout Button
         Button(
-            onClick = {
-                viewModel.logout()
-                onLogout()
-            },
+            onClick = { viewModel.logout(onLogout) },
+            enabled = !uiState.isSessionBusy && !uiState.isUnenrolling && uiState.isInitialized,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Logout")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            "Reset clears the merchant session and reader enrollment, then initializes a fresh SDK instance. Log in and enroll again afterward.",
+            style = MaterialTheme.typography.bodySmall
+        )
+        Button(
+            onClick = {
+                viewModel.resetSdk {
+                    activity?.refreshNfcRegistration()
+                    onLogout()
+                }
+            },
+            enabled = !uiState.isSessionBusy && !uiState.isUnenrolling,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Reset SDK and sign out")
+        }
+        uiState.sessionError?.let { error ->
+            Text(error, color = MaterialTheme.colorScheme.error)
         }
     }
 }
@@ -229,7 +267,7 @@ private fun KernelStatusRow(isInstalled: Boolean) {
 
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-    private val sdk = KoardMerchantSdk.getInstance()
+    private val sdk get() = KoardMerchantSdk.getInstance()
     private val readinessState = sdk.readinessState
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -258,6 +296,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun loadSettings() {
+        if (!KoardMerchantSdk.isInitialized()) {
+            _uiState.update { it.copy(isInitialized = false, sdkStatusMessage = "Not initialized") }
+            return
+        }
         val isDeveloperMode = sdk.isDeveloperModeEnabled()
         val readiness = readinessState.value
         val readinessMessage = readiness.getStatusMessage()
@@ -270,6 +312,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
         _uiState.update {
             it.copy(
+                isInitialized = true,
                 isKernelInstalled = sdk.isKernelAppInstalled,
                 isDeveloperModeEnabled = isDeveloperMode,
                 sdkStatusMessage = readinessMessage,
@@ -320,6 +363,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun unenrollDevice() {
+        if (_uiState.value.isSessionBusy || _uiState.value.isUnenrolling) return
+        _uiState.update { it.copy(isUnenrolling = true, unenrollError = null) }
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 _uiState.update { it.copy(isUnenrolling = true, unenrollError = null) }
@@ -343,19 +388,56 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(tapTimeoutSeconds = value) }
     }
 
-    fun logout() {
-        viewModelScope.launch(Dispatchers.IO) {
+    fun logout(onSuccess: () -> Unit) {
+        if (_uiState.value.isSessionBusy || _uiState.value.isUnenrolling) return
+        _uiState.update { it.copy(isSessionBusy = true, sessionError = null) }
+        viewModelScope.launch {
             try {
-                sdk.logout()
-                loadSettings()
+                withContext(Dispatchers.IO) { sdk.logout() }
+                onSuccess()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Timber.w(e, "Failed to logout")
+                _uiState.update { it.copy(sessionError = e.message ?: "Logout failed") }
+            } finally {
+                _uiState.update { it.copy(isSessionBusy = false) }
+            }
+        }
+    }
+
+    fun resetSdk(onSuccess: () -> Unit) {
+        if (_uiState.value.isSessionBusy || _uiState.value.isUnenrolling) return
+        _uiState.update { it.copy(isSessionBusy = true, isResetting = true, sessionError = null) }
+        viewModelScope.launch {
+            try {
+                getApplication<DemoApplication>().resetSdk()
+                // Navigation pops the authenticated graph and its ViewModels;
+                // the next session collects readiness from the new SDK instance.
+                onSuccess()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "SDK reset failed")
+                _uiState.update { it.copy(sessionError = e.message ?: "SDK reset failed") }
+            } finally {
+                _uiState.update {
+                    it.copy(
+                        isSessionBusy = false,
+                        isResetting = false,
+                        isInitialized = KoardMerchantSdk.isInitialized()
+                    )
+                }
             }
         }
     }
 }
 
 data class SettingsUiState(
+    val isInitialized: Boolean = KoardMerchantSdk.isInitialized(),
+    val isSessionBusy: Boolean = false,
+    val isResetting: Boolean = false,
+    val sessionError: String? = null,
     val isKernelInstalled: Boolean = false,
     val isDeveloperModeEnabled: Boolean = false,
     val sdkStatusMessage: String = "Unknown",

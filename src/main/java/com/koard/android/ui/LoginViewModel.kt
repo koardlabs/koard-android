@@ -1,6 +1,7 @@
 package com.koard.android.ui
 
 import android.app.Application
+import com.koard.android.DemoApplication
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.koardlabs.merchant.sdk.KoardMerchantSdk
@@ -14,7 +15,7 @@ import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 class LoginViewModel(application: Application) : AndroidViewModel(application) {
-    private val sdk = KoardMerchantSdk.getInstance()
+    private val sdk get() = KoardMerchantSdk.getInstance()
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
@@ -43,6 +44,7 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
             try {
                 val success = withContext(Dispatchers.IO) {
+                    getApplication<DemoApplication>().initializeSdk()
                     sdk.login(merchantCode, merchantPin)
                 }
 

@@ -16,7 +16,16 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // Koard Android SDK resolves from mavenCentral() above (com.koard:koard-android-sdk).
+        // Use the exact checked-in release, including its POM/runtime dependencies.
+        exclusiveContent {
+            forRepository {
+                maven {
+                    name = "KoardReleaseMirror"
+                    url = uri("libs-maven")
+                }
+            }
+            filter { includeVersion("com.koard", "koard-android-sdk", "1.0.7") }
+        }
     }
 }
 
